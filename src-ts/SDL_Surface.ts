@@ -1,5 +1,6 @@
 import Allocator from "./Allocator";
 import { Pixels, Ptr, UrlString } from "./flavours";
+import PromiseTracker from "./PromiseTracker";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_SurfaceFlags from "./SDL_SurfaceFlags";
@@ -21,6 +22,7 @@ export default class SDL_Surface {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   loaded: boolean;
+  promise: Promise<HTMLCanvasElement>;
 
   constructor(
     private allocator: Allocator,
@@ -34,6 +36,7 @@ export default class SDL_Surface {
     this.canvas = canvas;
     this.ctx = ctx;
     this.loaded = true;
+    this.promise = Promise.resolve(canvas);
     this.id = allocator.alloc(32);
     this.name = `Surface<${this.id}>`;
 
@@ -113,19 +116,21 @@ export default class SDL_Surface {
     return new SDL_Rect(0, 0, this.width, this.height);
   }
 
-  async loadImage(url: UrlString) {
-    return new Promise<HTMLImageElement>((resolve) => {
-      this.name = `Surface<${url}>`;
-      this.loaded = false;
-      const img = document.createElement("img");
-      img.src = url;
-      img.addEventListener("load", () => {
-        this.width = img.naturalWidth;
-        this.height = img.naturalHeight;
-        this.ctx.drawImage(img, 0, 0);
-        this.loaded = true;
-        resolve(img);
-      });
-    });
+  loadImage(tracker: PromiseTracker, url: UrlString) {
+    this.promise = tracker.add(
+      new Promise((resolve) => {
+        this.name = `Surface<${url}>`;
+        const img = document.createElement("img");
+        img.src = url;
+        img.addEventListener("load", () => {
+          this.width = img.naturalWidth;
+          this.height = img.naturalHeight;
+          this.ctx.drawImage(img, 0, 0);
+          this.loaded = true;
+          resolve(this.canvas);
+        });
+        return this.promise;
+      }),
+    );
   }
 }

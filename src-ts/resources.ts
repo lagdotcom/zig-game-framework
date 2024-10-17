@@ -1,7 +1,7 @@
-import hiBmp from "../res/hi.bmp";
+import pngPng from "../res/png.png";
 import { UrlString } from "./flavours";
 
 const resources: Record<string, UrlString> = {
-  "res/hi.bmp": hiBmp,
+  "res/png.png": pngPng,
 };
 export default resources;

@@ -1,6 +1,6 @@
 # Instructions
 
-- Get SDL3
+- Get SDL3 from, say [https://github.com/mmozeiko/build-sdl3]
 - Put the `dll`/`lib` files in /lib
 - Put the header files in /include
 - Run `zig build run` to play locally

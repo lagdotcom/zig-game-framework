@@ -1,39 +1,75 @@
 const std = @import("std");
 const sdl = @cImport({
-    @cInclude("SDL3/SDL.h");
+    @cInclude("SDL3/SDL_image.h");
 });
+
+const window_width = 800;
+const window_height = 600;
 
 pub const Engine = extern struct {
     window: *sdl.SDL_Window,
-    surface: *sdl.SDL_Surface,
-    bg_image: *sdl.SDL_Surface,
+    renderer: *sdl.SDL_Renderer,
+    bg_texture: *sdl.SDL_Texture,
     running: bool,
 
     pub fn init() !Engine {
         if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO)) {
             std.debug.print("SDL_Init: {s}\n", .{sdl.SDL_GetError()});
-            return error.Init;
+            return error.SDL_Init;
         }
+        errdefer sdl.SDL_Quit();
 
-        const window = sdl.SDL_CreateWindow("Zig + SDL3", 800, 600, 0);
+        const window = sdl.SDL_CreateWindow("Zig + SDL3", window_width, window_height, 0);
         if (window == null) {
             std.debug.print("SDL_CreateWindow: {s}\n", .{sdl.SDL_GetError()});
-            return error.CreateWindow;
+            return error.SDL_CreateWindow;
         }
-        const surface = sdl.SDL_GetWindowSurface(window);
+        errdefer sdl.SDL_DestroyWindow(window);
 
-        const bg_image = sdl.SDL_LoadBMP("res/hi.bmp");
+        const renderer = sdl.SDL_CreateRenderer(window, null);
+        if (renderer == null) {
+            std.debug.print("SDL_CreateRenderer: {s}\n", .{sdl.SDL_GetError()});
+            return error.SDL_CreateRenderer;
+        }
+        errdefer sdl.SDL_DestroyRenderer(renderer);
+
+        const desired = sdl.IMG_INIT_PNG;
+        const loaded = sdl.IMG_Init(desired);
+        if ((loaded & desired) != desired) {
+            std.log.debug("IMG_Init: {s}", .{sdl.SDL_GetError()});
+            return error.IMG_Init;
+        }
+        errdefer sdl.IMG_Quit();
+
+        const bg_image = sdl.IMG_Load("res/png.png");
         if (bg_image == null) {
-            std.debug.print("SDL_LoadBMP: {s}\n", .{sdl.SDL_GetError()});
-            return error.LoadBMP;
+            std.debug.print("IMG_Load: {s}\n", .{sdl.SDL_GetError()});
+            return error.IMG_Load;
         }
 
-        return Engine{ .window = window.?, .surface = surface, .bg_image = bg_image, .running = false };
+        const bg_texture = sdl.SDL_CreateTextureFromSurface(renderer, bg_image);
+        if (bg_texture == null) {
+            sdl.SDL_DestroySurface(bg_image);
+
+            std.debug.print("SDL_CreateTextureFromSurface: {s}", .{sdl.SDL_GetError()});
+            return error.SDL_CreateTextureFromSurface;
+        }
+        sdl.SDL_DestroySurface(bg_image);
+        errdefer sdl.SDL_DestroyTexture(bg_texture);
+
+        return Engine{
+            .window = window.?,
+            .renderer = renderer.?,
+            .bg_texture = bg_texture,
+            .running = false,
+        };
     }
 
     pub fn deinit(self: *Engine) void {
-        sdl.SDL_DestroySurface(self.bg_image);
+        sdl.SDL_DestroyTexture(self.bg_texture);
+        sdl.SDL_DestroyRenderer(self.renderer);
         sdl.SDL_DestroyWindow(self.window);
+        sdl.IMG_Quit();
         sdl.SDL_Quit();
     }
 
@@ -51,11 +87,17 @@ pub const Engine = extern struct {
             }
         }
 
-        const cx = @divFloor(self.surface.w - self.bg_image.w, 2);
-        const cy = @divFloor(self.surface.h - self.bg_image.h, 2);
-        const rect = sdl.SDL_Rect{ .w = self.bg_image.w, .h = self.bg_image.h, .x = cx, .y = cy };
+        _ = sdl.SDL_SetRenderDrawColor(self.renderer, 0xff, 0xff, 0x7f, 0xff);
+        _ = sdl.SDL_RenderClear(self.renderer);
 
-        _ = sdl.SDL_BlitSurface(self.bg_image, null, self.surface, &rect);
-        _ = sdl.SDL_UpdateWindowSurface(self.window);
+        const rect = sdl.SDL_FRect{
+            .w = @floatFromInt(self.bg_texture.w),
+            .h = @floatFromInt(self.bg_texture.h),
+            .x = @as(f32, @floatFromInt(window_width - self.bg_texture.w)) / 2,
+            .y = @as(f32, @floatFromInt(window_height - self.bg_texture.h)) / 2,
+        };
+        _ = sdl.SDL_RenderTexture(self.renderer, self.bg_texture, null, &rect);
+
+        _ = sdl.SDL_RenderPresent(self.renderer);
     }
 };

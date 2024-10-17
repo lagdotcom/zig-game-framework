@@ -13,4 +13,5 @@ export type StringPtr = Flavour<number, "StringPtr">;
 
 export type UrlString = Flavour<string, "UrlString">;
 
+export type SDL_RendererID = Flavour<number, "SDL_RendererID">;
 export type SDL_WindowID = Flavour<number, "SDL_WindowID">;
