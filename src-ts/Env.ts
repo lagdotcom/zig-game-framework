@@ -1,4 +1,5 @@
 import Allocator from "./Allocator";
+import { SDL_Event } from "./events";
 import {
   Bytes,
   EnginePtr,
@@ -9,6 +10,7 @@ import {
   SDL_WindowID,
   StringPtr,
 } from "./flavours";
+import Keys from "./Keys";
 import PromiseTracker from "./PromiseTracker";
 import resources from "./resources";
 import SDL_FRect from "./SDL_FRect";
@@ -36,6 +38,9 @@ export default class Env {
   allocator!: Allocator;
   mem!: WebAssembly.Memory;
   engine!: EnginePtr;
+  keys!: Keys;
+
+  events: SDL_Event[];
   tracker: PromiseTracker;
   renderers: Record<SDL_RendererID, SDL_Renderer>;
   surfaces: Record<Ptr, SDL_Surface>;
@@ -43,6 +48,7 @@ export default class Env {
   windows: Record<SDL_WindowID, SDL_Window>;
 
   constructor() {
+    this.events = [];
     this.renderers = {};
     this.surfaces = {};
     this.textures = {};
@@ -56,6 +62,7 @@ export default class Env {
     (window as any).env = this;
     this.mem = x.memory;
     this.allocator = new Allocator(x.memory);
+    this.keys = new Keys(this.allocator, document.body, this.events);
 
     x.main();
     if (!this.engine) throw new Error("setEngineAddress not called");
@@ -146,9 +153,13 @@ export default class Env {
     return this.loadResourceAsImage(data);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   SDL_PollEvent = (buffer: Ptr) => {
-    // TODO
+    const event = this.events.shift();
+    if (event) {
+      event.write(this.mem, buffer);
+      return true;
+    }
+
     return false;
   };
 
@@ -239,6 +250,13 @@ export default class Env {
   SDL_DestroySurface = (sID: Ptr) => {
     delete this.surfaces[sID];
   };
+
+  SDL_DestroyTexture = (tID: Ptr) => {
+    delete this.textures[tID];
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  SDL_GetKeyboardState = (ptr: Ptr) => this.keys.ptr;
 
   write = (fd: FileDescriptor, buf: StringPtr, count: Bytes) => {
     const data = this.str(buf, count);

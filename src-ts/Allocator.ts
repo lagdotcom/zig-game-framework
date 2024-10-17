@@ -20,4 +20,13 @@ export default class Allocator {
     const offset = this.at % multiple;
     if (offset) this.at += multiple - offset;
   }
+
+  calloc(size: Bytes) {
+    const ptr = this.alloc(size);
+
+    const view = new DataView(this.mem.buffer, ptr);
+    for (let i = 0; i < size; i++) view.setUint8(i, 0);
+
+    return ptr;
+  }
 }
