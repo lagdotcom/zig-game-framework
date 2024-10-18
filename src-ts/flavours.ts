@@ -9,6 +9,8 @@ export type EnginePtr = Flavour<number, "EnginePtr">;
 export type FileDescriptor = Flavour<number, "FileDescriptor">;
 export type Pixels = Flavour<number, "Pixels">;
 export type Ptr = Flavour<number, "Ptr">;
+export type RGBAComponent = Flavour<number, "RGBAComponent">;
+export type RGBAValue = Flavour<number, "RGBAValue">;
 export type StringPtr = Flavour<number, "StringPtr">;
 
 export type Nanoseconds = Flavour<bigint, "Nanoseconds">;

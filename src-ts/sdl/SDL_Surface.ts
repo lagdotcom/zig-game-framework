@@ -1,5 +1,5 @@
 import Allocator from "../Allocator";
-import { Pixels, Ptr, UrlString } from "../flavours";
+import { Pixels, Ptr, RGBAValue, UrlString } from "../flavours";
 import PromiseTracker from "../PromiseTracker";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
@@ -20,6 +20,7 @@ export default class SDL_Surface {
   name: string;
   id: Ptr;
   canvas: HTMLCanvasElement;
+  colorKey?: RGBAValue;
   ctx: CanvasRenderingContext2D;
   loaded: boolean;
   promise: Promise<HTMLCanvasElement>;
@@ -94,7 +95,7 @@ export default class SDL_Surface {
   get pixels() {
     return this.view.getUint32(20, true);
   }
-  set pixels(value: number) {
+  set pixels(value: Ptr) {
     this.view.setUint32(20, value, true);
   }
 
@@ -108,7 +109,7 @@ export default class SDL_Surface {
   get reserved() {
     return this.view.getUint32(28, true);
   }
-  set reserved(value: number) {
+  set reserved(value: Ptr) {
     this.view.setUint32(28, value, true);
   }
 
@@ -116,7 +117,17 @@ export default class SDL_Surface {
     return new SDL_Rect(0, 0, this.width, this.height);
   }
 
-  loadImage(tracker: PromiseTracker, url: UrlString) {
+  loadImage(
+    tracker: PromiseTracker,
+    url: UrlString,
+    width?: Pixels,
+    height?: Pixels,
+  ) {
+    if (typeof width === "number" && typeof height === "number") {
+      this.width = width;
+      this.height = height;
+    }
+
     this.promise = tracker.add(
       new Promise((resolve) => {
         this.name = `Surface<${url}>`;

@@ -5,11 +5,13 @@ import {
   FileDescriptor,
   Pixels,
   Ptr,
+  RGBAComponent,
+  RGBAValue,
   StringPtr,
 } from "./flavours";
 import KeyboardListener from "./KeyboardListener";
 import PromiseTracker from "./PromiseTracker";
-import resources from "./resources";
+import { images } from "./resources";
 import { SDL_RendererID, SDL_WindowID } from "./sdl/flavours";
 import IMG_InitFlags from "./sdl/IMG_InitFlags";
 import SDL_Event from "./sdl/SDL_Event";
@@ -22,6 +24,7 @@ import SDL_Texture from "./sdl/SDL_Texture";
 import SDL_Window from "./sdl/SDL_Window";
 import SDL_WindowFlags from "./sdl/SDL_WindowFlags";
 import decomposeFlags from "./utils/decomposeFlags";
+import { createRGBA } from "./utils/rgba";
 
 const stub =
   (name: string) =>
@@ -117,11 +120,11 @@ export default class Env {
   }
 
   loadResourceAsImage(data: string) {
-    const url = resources[data];
-    if (!url) throw new Error(`Missing resource: ${url}`);
+    const res = images[data];
+    if (!res) throw new Error(`Missing image resource: ${data}`);
 
     const surface = new SDL_Surface(this.allocator);
-    surface.loadImage(this.tracker, url);
+    surface.loadImage(this.tracker, res.url, res.width, res.height);
     this.surfaces.set(surface.id, surface);
     return surface.id;
   }
@@ -243,10 +246,10 @@ export default class Env {
 
   SDL_SetRenderDrawColor = (
     rID: SDL_RendererID,
-    r: number,
-    g: number,
-    b: number,
-    a: number,
+    r: RGBAComponent,
+    g: RGBAComponent,
+    b: RGBAComponent,
+    a: RGBAComponent,
   ) => {
     const renderer = this.renderers.get(rID);
     if (!renderer) return false;
@@ -268,6 +271,11 @@ export default class Env {
     const t = this.textures.get(tID);
     if (!r || !t) return false;
 
+    if (!t.loaded) {
+      console.warn(`SDL_RenderTexture: Texture<${tID}> not loaded yet.`);
+      return;
+    }
+
     const sr = srcRect ? this.floatRect(srcRect) : t.rect;
     const dr = dstRect ? this.floatRect(dstRect) : sr;
 
@@ -283,6 +291,22 @@ export default class Env {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   SDL_GetKeyboardState = (ptr: Ptr) => this.keys.ptr;
+
+  // TODO this should use the surface's pixel format
+  SDL_MapSurfaceRGB = (
+    sID: Ptr,
+    r: RGBAComponent,
+    g: RGBAComponent,
+    b: RGBAComponent,
+  ) => createRGBA(r, g, b);
+
+  SDL_SetSurfaceColorKey = (sID: Ptr, enabled: boolean, key: RGBAValue) => {
+    const surface = this.surfaces.get(sID);
+    if (!surface) return false;
+
+    surface.colorKey = enabled ? key : undefined;
+    return true;
+  };
 
   write = (fd: FileDescriptor, buf: StringPtr, count: Bytes) => {
     const data = this.str(buf, count);

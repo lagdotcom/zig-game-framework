@@ -1,6 +1,7 @@
 import Allocator from "../Allocator";
 import { Pixels, Ptr } from "../flavours";
 import PromiseTracker from "../PromiseTracker";
+import convertCanvasToBitmap from "../utils/convertCanvasToBitmap";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_Renderer from "./SDL_Renderer";
@@ -17,6 +18,7 @@ import SDL_Surface from "./SDL_Surface";
 export default class SDL_Texture {
   id: Ptr;
   bitmap!: ImageBitmap;
+  loaded: boolean;
 
   constructor(
     private allocator: Allocator,
@@ -30,10 +32,11 @@ export default class SDL_Texture {
     this.height = surface.height;
     this.refcount = 0;
 
+    this.loaded = false;
     tracker.add(
-      surface.promise.then((canvas) =>
-        window.createImageBitmap(canvas).then(this.loadFromBitmap),
-      ),
+      surface.promise
+        .then(convertCanvasToBitmap(surface.colorKey))
+        .then(this.loadFromBitmap),
     );
   }
 
@@ -43,6 +46,7 @@ export default class SDL_Texture {
     this.width = bitmap.width;
     this.height = bitmap.height;
     this.refcount = 0;
+    this.loaded = true;
   };
 
   get view() {

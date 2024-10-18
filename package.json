@@ -7,7 +7,7 @@
   "scripts": {
     "lint": "eslint src-ts",
     "build": "yarn build:zig && yarn clean:ts && yarn build:ts",
-    "build:ts": "esbuild src-ts/index.ts  --bundle --outfile=docs/bundle.js --loader:.wasm=file --loader:.bmp=file --loader:.png=file",
+    "build:ts": "esbuild src-ts/index.ts --sourcemap --bundle --outfile=docs/bundle.js --loader:.wasm=file --loader:.bmp=file --loader:.png=file",
     "build:zig": "zig build",
     "clean:ts": "rimraf -g docs/*.wasm"
   },
