@@ -10,8 +10,7 @@ import {
   StringPtr,
 } from "./flavours";
 import KeyboardListener from "./KeyboardListener";
-import PromiseTracker from "./PromiseTracker";
-import { images } from "./resources";
+import { ResourceMap } from "./Manifest";
 import { SDL_RendererID, SDL_WindowID } from "./sdl/flavours";
 import IMG_InitFlags from "./sdl/IMG_InitFlags";
 import SDL_Event from "./sdl/SDL_Event";
@@ -51,21 +50,18 @@ export default class Env {
 
   events: SDL_Event[];
   imageInit: IMG_InitFlags;
-  tracker: PromiseTracker;
   renderers: Map<SDL_RendererID, SDL_Renderer>;
   surfaces: Map<Ptr, SDL_Surface>;
   textures: Map<Ptr, SDL_Texture>;
   windows: Map<SDL_WindowID, SDL_Window>;
 
-  constructor() {
+  constructor(public resources: ResourceMap) {
     this.imageInit = 0;
     this.events = [];
     this.renderers = new Map();
     this.surfaces = new Map();
     this.textures = new Map();
     this.windows = new Map();
-
-    this.tracker = new PromiseTracker();
   }
 
   start(x: EngineExports) {
@@ -84,12 +80,8 @@ export default class Env {
 
     console.log(this);
     const tick = () => {
-      if (this.tracker.ready) {
-        const running = x.tick(this.engine);
-        if (!running) return;
-      }
-
-      requestAnimationFrame(tick);
+      const running = x.tick(this.engine);
+      if (running) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
@@ -120,11 +112,11 @@ export default class Env {
   }
 
   loadResourceAsImage(data: string) {
-    const res = images[data];
-    if (!res) throw new Error(`Missing image resource: ${data}`);
+    const img = this.resources[data];
+    if (img.type !== "image")
+      throw new Error(`Missing image resource: ${data}`);
 
-    const surface = new SDL_Surface(this.allocator);
-    surface.loadImage(this.tracker, res.url, res.width, res.height);
+    const surface = SDL_Surface.fromImage(this.allocator, img);
     this.surfaces.set(surface.id, surface);
     return surface.id;
   }
@@ -234,12 +226,7 @@ export default class Env {
     const surface = this.surfaces.get(sID);
     if (!renderer || !surface) return 0;
 
-    const texture = new SDL_Texture(
-      this.allocator,
-      renderer,
-      surface,
-      this.tracker,
-    );
+    const texture = new SDL_Texture(this.allocator, renderer, surface);
     this.textures.set(texture.id, texture);
     return texture.id;
   };
@@ -270,11 +257,6 @@ export default class Env {
     const r = this.renderers.get(rID);
     const t = this.textures.get(tID);
     if (!r || !t) return false;
-
-    if (!t.loaded) {
-      console.warn(`SDL_RenderTexture: Texture<${tID}> not loaded yet.`);
-      return;
-    }
 
     const sr = srcRect ? this.floatRect(srcRect) : t.rect;
     const dr = dstRect ? this.floatRect(dstRect) : sr;

@@ -1,6 +1,5 @@
 import Allocator from "../Allocator";
 import { Pixels, Ptr } from "../flavours";
-import PromiseTracker from "../PromiseTracker";
 import convertCanvasToBitmap from "../utils/convertCanvasToBitmap";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
@@ -17,14 +16,13 @@ import SDL_Surface from "./SDL_Surface";
 
 export default class SDL_Texture {
   id: Ptr;
-  bitmap!: ImageBitmap;
-  loaded: boolean;
+  bitmap?: ImageBitmap;
 
   constructor(
     private allocator: Allocator,
     public renderer: SDL_Renderer,
     surface: SDL_Surface,
-    tracker: PromiseTracker,
+    public name = surface.name,
   ) {
     this.id = allocator.alloc(16);
     this.format = 0;
@@ -32,22 +30,8 @@ export default class SDL_Texture {
     this.height = surface.height;
     this.refcount = 0;
 
-    this.loaded = false;
-    tracker.add(
-      surface.promise
-        .then(convertCanvasToBitmap(surface.colorKey))
-        .then(this.loadFromBitmap),
-    );
+    convertCanvasToBitmap(surface).then((bitmap) => (this.bitmap = bitmap));
   }
-
-  loadFromBitmap = (bitmap: ImageBitmap) => {
-    this.bitmap = bitmap;
-    this.format = 0;
-    this.width = bitmap.width;
-    this.height = bitmap.height;
-    this.refcount = 0;
-    this.loaded = true;
-  };
 
   get view() {
     return new DataView(this.allocator.mem.buffer, this.id, 16);

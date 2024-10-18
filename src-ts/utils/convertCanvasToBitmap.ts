@@ -1,16 +1,12 @@
-import { RGBAValue } from "../flavours";
+import SDL_Surface from "../sdl/SDL_Surface";
 import { extractRGBA } from "./rgba";
 
-const convertCanvasToBitmap =
-  (key?: RGBAValue) => (canvas: HTMLCanvasElement) => {
-    if (!key) return window.createImageBitmap(canvas);
+export default function convertCanvasToBitmap(surface: SDL_Surface) {
+  const id = surface.ctx.getImageData(0, 0, surface.width, surface.height);
 
-    const col = extractRGBA(key);
+  if (typeof surface.colorKey === "number") {
+    const col = extractRGBA(surface.colorKey);
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Could not get context");
-
-    const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < id.data.length; i += 4) {
       if (
         id.data[i] === col.r &&
@@ -19,7 +15,7 @@ const convertCanvasToBitmap =
       )
         id.data[i + 3] = 0;
     }
+  }
 
-    return window.createImageBitmap(id);
-  };
-export default convertCanvasToBitmap;
+  return window.createImageBitmap(id);
+}

@@ -38,7 +38,10 @@ export default class SDL_Renderer {
   }
 
   render(t: SDL_Texture, s: SDL_FRect, d: SDL_FRect) {
-    this.ctx.drawImage(t.bitmap, s.x, s.y, s.w, s.h, d.x, d.y, d.w, d.h);
+    if (t.bitmap)
+      this.ctx.drawImage(t.bitmap, s.x, s.y, s.w, s.h, d.x, d.y, d.w, d.h);
+    else console.warn(`${t.name} not loaded yet`);
+
     return true;
   }
 }

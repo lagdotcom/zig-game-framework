@@ -1,6 +1,6 @@
 import Allocator from "../Allocator";
-import { Pixels, Ptr, RGBAValue, UrlString } from "../flavours";
-import PromiseTracker from "../PromiseTracker";
+import { Pixels, Ptr, RGBAValue } from "../flavours";
+import { ImageResource } from "../Manifest";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_SurfaceFlags from "./SDL_SurfaceFlags";
@@ -23,7 +23,6 @@ export default class SDL_Surface {
   colorKey?: RGBAValue;
   ctx: CanvasRenderingContext2D;
   loaded: boolean;
-  promise: Promise<HTMLCanvasElement>;
 
   constructor(
     private allocator: Allocator,
@@ -37,18 +36,30 @@ export default class SDL_Surface {
     this.canvas = canvas;
     this.ctx = ctx;
     this.loaded = true;
-    this.promise = Promise.resolve(canvas);
     this.id = allocator.alloc(32);
     this.name = `Surface<${this.id}>`;
 
     this.flags = 0;
-    this.format = 0;
+    this.format = SDL_PixelFormat.SDL_PIXELFORMAT_RGBA8888;
     this.width = width;
     this.height = height;
     this.pitch = 4;
     this.pixels = 0;
     this.refcount = 0;
     this.reserved = 0;
+  }
+
+  static fromImage(allocator: Allocator, res: ImageResource) {
+    const surface = new SDL_Surface(
+      allocator,
+      res.img.naturalWidth,
+      res.img.naturalHeight,
+    );
+    surface.name = `Surface<${res.path}>`;
+    surface.ctx.drawImage(res.img, 0, 0);
+    surface.loaded = true;
+
+    return surface;
   }
 
   get view() {
@@ -115,33 +126,5 @@ export default class SDL_Surface {
 
   get rect() {
     return new SDL_Rect(0, 0, this.width, this.height);
-  }
-
-  loadImage(
-    tracker: PromiseTracker,
-    url: UrlString,
-    width?: Pixels,
-    height?: Pixels,
-  ) {
-    if (typeof width === "number" && typeof height === "number") {
-      this.width = width;
-      this.height = height;
-    }
-
-    this.promise = tracker.add(
-      new Promise((resolve) => {
-        this.name = `Surface<${url}>`;
-        const img = document.createElement("img");
-        img.src = url;
-        img.addEventListener("load", () => {
-          this.width = img.naturalWidth;
-          this.height = img.naturalHeight;
-          this.ctx.drawImage(img, 0, 0);
-          this.loaded = true;
-          resolve(this.canvas);
-        });
-        return this.promise;
-      }),
-    );
   }
 }
