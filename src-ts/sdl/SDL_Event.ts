@@ -13,12 +13,17 @@
     bool repeat;            // true if this is a key repeat
 } SDL_KeyboardEvent; */
 
-import { Ptr, SDL_KeyboardID, SDL_Scancode, SDL_WindowID } from "./flavours";
+import { Nanoseconds, Ptr } from "../flavours";
+import getNanosecondTimestamp from "../utils/getNanosecondTimestamp";
+import { SDL_KeyboardID, SDL_WindowID } from "./flavours";
 import SDL_EventType from "./SDL_EventType";
 import SDL_Keycode from "./SDL_Keycode";
 import SDL_Keymod from "./SDL_Keymod";
+import SDL_Scancode from "./SDL_Scancode";
 
 export class SDL_KeyboardEvent {
+  timestamp: Nanoseconds;
+
   constructor(
     public type:
       | SDL_EventType.SDL_EVENT_KEY_UP
@@ -31,16 +36,16 @@ export class SDL_KeyboardEvent {
     public raw: number,
     public down: boolean,
     public repeat: boolean,
-    public timestamp = window.performance.now(),
-  ) {}
+  ) {
+    this.timestamp = getNanosecondTimestamp();
+  }
 
   write(mem: WebAssembly.Memory, ptr: Ptr) {
     const view = new DataView(mem.buffer, ptr);
 
     view.setUint32(0, this.type, true);
     view.setUint32(4, 0, true);
-    view.setUint32(8, this.timestamp & 0xffffffff, true);
-    view.setUint32(12, this.timestamp >> 32, true);
+    view.setBigUint64(8, this.timestamp, true);
     view.setUint32(16, this.windowID, true);
     view.setUint32(20, this.which, true);
     view.setUint32(24, this.scancode, true);
@@ -52,4 +57,5 @@ export class SDL_KeyboardEvent {
   }
 }
 
-export type SDL_Event = SDL_KeyboardEvent;
+type SDL_Event = SDL_KeyboardEvent;
+export default SDL_Event;

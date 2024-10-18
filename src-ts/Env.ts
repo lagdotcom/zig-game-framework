@@ -1,24 +1,27 @@
 import Allocator from "./Allocator";
-import { SDL_Event } from "./events";
 import {
   Bytes,
   EnginePtr,
   FileDescriptor,
   Pixels,
   Ptr,
-  SDL_RendererID,
-  SDL_WindowID,
   StringPtr,
 } from "./flavours";
-import Keys from "./Keys";
+import KeyboardListener from "./KeyboardListener";
 import PromiseTracker from "./PromiseTracker";
 import resources from "./resources";
-import SDL_FRect from "./SDL_FRect";
-import SDL_Rect from "./SDL_Rect";
-import SDL_Renderer from "./SDL_Renderer";
-import SDL_Surface from "./SDL_Surface";
-import SDL_Texture from "./SDL_Texture";
-import SDL_Window from "./SDL_Window";
+import { SDL_RendererID, SDL_WindowID } from "./sdl/flavours";
+import IMG_InitFlags from "./sdl/IMG_InitFlags";
+import SDL_Event from "./sdl/SDL_Event";
+import SDL_FRect from "./sdl/SDL_FRect";
+import SDL_InitFlags from "./sdl/SDL_InitFlags";
+import SDL_Rect from "./sdl/SDL_Rect";
+import SDL_Renderer from "./sdl/SDL_Renderer";
+import SDL_Surface from "./sdl/SDL_Surface";
+import SDL_Texture from "./sdl/SDL_Texture";
+import SDL_Window from "./sdl/SDL_Window";
+import SDL_WindowFlags from "./sdl/SDL_WindowFlags";
+import decomposeFlags from "./utils/decomposeFlags";
 
 const stub =
   (name: string) =>
@@ -27,6 +30,9 @@ const stub =
   };
 
 const utf8Decoder = new TextDecoder("utf-8");
+
+const supportedImageFlags =
+  IMG_InitFlags.IMG_INIT_JPG | IMG_InitFlags.IMG_INIT_PNG;
 
 export interface EngineExports {
   memory: WebAssembly.Memory;
@@ -38,21 +44,23 @@ export default class Env {
   allocator!: Allocator;
   mem!: WebAssembly.Memory;
   engine!: EnginePtr;
-  keys!: Keys;
+  keys!: KeyboardListener;
 
   events: SDL_Event[];
+  imageInit: IMG_InitFlags;
   tracker: PromiseTracker;
-  renderers: Record<SDL_RendererID, SDL_Renderer>;
-  surfaces: Record<Ptr, SDL_Surface>;
-  textures: Record<Ptr, SDL_Texture>;
-  windows: Record<SDL_WindowID, SDL_Window>;
+  renderers: Map<SDL_RendererID, SDL_Renderer>;
+  surfaces: Map<Ptr, SDL_Surface>;
+  textures: Map<Ptr, SDL_Texture>;
+  windows: Map<SDL_WindowID, SDL_Window>;
 
   constructor() {
+    this.imageInit = 0;
     this.events = [];
-    this.renderers = {};
-    this.surfaces = {};
-    this.textures = {};
-    this.windows = {};
+    this.renderers = new Map();
+    this.surfaces = new Map();
+    this.textures = new Map();
+    this.windows = new Map();
 
     this.tracker = new PromiseTracker();
   }
@@ -62,7 +70,11 @@ export default class Env {
     (window as any).env = this;
     this.mem = x.memory;
     this.allocator = new Allocator(x.memory);
-    this.keys = new Keys(this.allocator, document.body, this.events);
+    this.keys = new KeyboardListener(
+      this.allocator,
+      document.body,
+      this.events,
+    );
 
     x.main();
     if (!this.engine) throw new Error("setEngineAddress not called");
@@ -110,7 +122,7 @@ export default class Env {
 
     const surface = new SDL_Surface(this.allocator);
     surface.loadImage(this.tracker, url);
-    this.surfaces[surface.id] = surface;
+    this.surfaces.set(surface.id, surface);
     return surface.id;
   }
 
@@ -118,10 +130,9 @@ export default class Env {
   SDL_DestroyWindow = stub("SDL_DestroyWindow");
   SDL_GetError = stub("SDL_GetError");
   SDL_Quit = stub("SDL_Quit");
-  IMG_Quit = stub("IMG_Quit");
 
-  SDL_Init = (type: number) => {
-    console.log("SDL_Init", type);
+  SDL_Init = (type: SDL_InitFlags) => {
+    console.log("SDL_Init", decomposeFlags(type, SDL_InitFlags));
     return true;
   };
 
@@ -129,10 +140,10 @@ export default class Env {
     title: StringPtr,
     width: Pixels,
     height: Pixels,
-    flags: number,
+    flags: SDL_WindowFlags,
   ) => {
     const surface = new SDL_Surface(this.allocator, width, height);
-    this.surfaces[surface.id] = surface;
+    this.surfaces.set(surface.id, surface);
 
     const window = new SDL_Window(
       surface,
@@ -141,11 +152,12 @@ export default class Env {
       height,
       flags,
     );
-    this.windows[window.id] = window;
+    this.windows.set(window.id, window);
     return window.id;
   };
 
-  SDL_GetWindowSurface = (id: SDL_WindowID) => this.windows[id].surface;
+  SDL_GetWindowSurface = (id: SDL_WindowID) =>
+    this.windows.get(id)?.surface ?? 0;
 
   SDL_LoadBMP = (file: StringPtr) => {
     const data = this.strZ(file);
@@ -164,18 +176,20 @@ export default class Env {
   };
 
   SDL_BlitSurface = (src: Ptr, srcRect: Ptr, dst: Ptr, dstRect: Ptr) => {
-    const s = this.surfaces[src];
+    const s = this.surfaces.get(src);
+    const d = this.surfaces.get(dst);
+    if (!s || !d) return false;
+
     if (!s.loaded) {
       console.warn(`SDL_BlitSurface: ${s.name} not loaded yet.`);
       return;
     }
 
-    const d = this.surfaces[dst];
-
     const sr = srcRect ? this.rect(srcRect) : s.rect;
     const dr = dstRect ? this.rect(dstRect) : sr;
 
     d.ctx.drawImage(s.canvas, sr.x, sr.y, sr.w, sr.h, dr.x, dr.y, dr.w, dr.h);
+    return true;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -185,16 +199,22 @@ export default class Env {
   };
 
   SDL_CreateRenderer = (wID: SDL_WindowID) => {
-    const renderer = new SDL_Renderer(this.windows[wID]);
-    this.renderers[renderer.id] = renderer;
+    const window = this.windows.get(wID);
+    if (!window) return false;
+
+    const renderer = new SDL_Renderer(window);
+    this.renderers.set(renderer.id, renderer);
     return renderer.id;
   };
 
-  SDL_DestroyRenderer = (rID: SDL_RendererID) => {
-    delete this.renderers[rID];
-  };
+  SDL_DestroyRenderer = (rID: SDL_RendererID) => this.renderers.delete(rID);
 
-  IMG_Init = (flags: number) => flags;
+  IMG_Init = (flags: IMG_InitFlags) => {
+    console.log("IMG_Init", decomposeFlags(flags, IMG_InitFlags));
+
+    this.imageInit |= flags & supportedImageFlags;
+    return this.imageInit;
+  };
 
   IMG_Load = (file: StringPtr) => {
     const data = this.strZ(file);
@@ -202,9 +222,14 @@ export default class Env {
     return this.loadResourceAsImage(data);
   };
 
+  IMG_Quit = () => {
+    this.imageInit = 0;
+  };
+
   SDL_CreateTextureFromSurface = (rID: SDL_RendererID, sID: Ptr) => {
-    const renderer = this.renderers[rID];
-    const surface = this.surfaces[sID];
+    const renderer = this.renderers.get(rID);
+    const surface = this.surfaces.get(sID);
+    if (!renderer || !surface) return 0;
 
     const texture = new SDL_Texture(
       this.allocator,
@@ -212,7 +237,7 @@ export default class Env {
       surface,
       this.tracker,
     );
-    this.textures[texture.id] = texture;
+    this.textures.set(texture.id, texture);
     return texture.id;
   };
 
@@ -223,12 +248,15 @@ export default class Env {
     b: number,
     a: number,
   ) => {
-    const renderer = this.renderers[rID];
+    const renderer = this.renderers.get(rID);
+    if (!renderer) return false;
+
     renderer.color = `rgba(${r},${g},${b},${a})`;
     return true;
   };
 
-  SDL_RenderClear = (rID: SDL_RendererID) => this.renderers[rID].clear();
+  SDL_RenderClear = (rID: SDL_RendererID) =>
+    this.renderers.get(rID)?.clear() ?? false;
 
   SDL_RenderTexture = (
     rID: SDL_RendererID,
@@ -236,8 +264,9 @@ export default class Env {
     srcRect: Ptr,
     dstRect: Ptr,
   ) => {
-    const r = this.renderers[rID];
-    const t = this.textures[tID];
+    const r = this.renderers.get(rID);
+    const t = this.textures.get(tID);
+    if (!r || !t) return false;
 
     const sr = srcRect ? this.floatRect(srcRect) : t.rect;
     const dr = dstRect ? this.floatRect(dstRect) : sr;
@@ -245,15 +274,12 @@ export default class Env {
     return r.render(t, sr, dr);
   };
 
-  SDL_RenderPresent = (rID: SDL_RendererID) => this.renderers[rID].present();
+  SDL_RenderPresent = (rID: SDL_RendererID) =>
+    this.renderers.get(rID)?.present() ?? false;
 
-  SDL_DestroySurface = (sID: Ptr) => {
-    delete this.surfaces[sID];
-  };
+  SDL_DestroySurface = (sID: Ptr) => this.surfaces.delete(sID);
 
-  SDL_DestroyTexture = (tID: Ptr) => {
-    delete this.textures[tID];
-  };
+  SDL_DestroyTexture = (tID: Ptr) => this.textures.delete(tID);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   SDL_GetKeyboardState = (ptr: Ptr) => this.keys.ptr;

@@ -1,6 +1,6 @@
-import Allocator from "./Allocator";
-import { Pixels, Ptr } from "./flavours";
-import PromiseTracker from "./PromiseTracker";
+import Allocator from "../Allocator";
+import { Pixels, Ptr } from "../flavours";
+import PromiseTracker from "../PromiseTracker";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_Renderer from "./SDL_Renderer";

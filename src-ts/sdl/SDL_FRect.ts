@@ -1,4 +1,4 @@
-import { Pixels, Ptr } from "./flavours";
+import { Pixels, Ptr } from "../flavours";
 
 export default class SDL_FRect {
   constructor(
