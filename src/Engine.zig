@@ -6,7 +6,10 @@ const Texture = @import("Texture.zig").Texture;
 const window_width = 800;
 const window_height = 600;
 
+var str_buffer = [_]u8{0} ** 128;
+
 pub const Engine = struct {
+    running: bool,
     window: *sdl.SDL_Window,
     renderer: *sdl.SDL_Renderer,
     bg_texture: Texture,
@@ -14,7 +17,8 @@ pub const Engine = struct {
     char_x: f32,
     char_y: f32,
     font: *sdl.TTF_Font,
-    running: bool,
+    mouse_x: f32,
+    mouse_y: f32,
 
     pub fn init() !Engine {
         if (!sdl.SDL_SetAppMetadata("Space Colony TCG", "0.1.0", "com.sadfolks.spacecolonytcg"))
@@ -80,6 +84,8 @@ pub const Engine = struct {
             .font = font.?,
             .char_x = 240,
             .char_y = 190,
+            .mouse_x = -1,
+            .mouse_y = -1,
             .running = false,
         };
     }
@@ -106,6 +112,9 @@ pub const Engine = struct {
             if (e.type == sdl.SDL_EVENT_QUIT) {
                 self.running = false;
                 return;
+            } else if (e.type == sdl.SDL_EVENT_MOUSE_MOTION) {
+                self.mouse_x = e.motion.x;
+                self.mouse_y = e.motion.y;
             }
         }
 
@@ -127,8 +136,10 @@ pub const Engine = struct {
         self.bg_texture.render(0, 0);
         self.char_texture.render(self.char_x, self.char_y);
 
+        _ = try std.fmt.bufPrint(&str_buffer, "mouse @{d},{d}", .{ self.mouse_x, self.mouse_y });
+
         const colour = sdl.SDL_Color{ .r = 11, .g = 22, .b = 33, .a = 255 };
-        var blah = try Texture.load_from_text(self.renderer, self.font, "hello there", colour);
+        var blah = try Texture.load_from_text(self.renderer, self.font, &str_buffer, colour);
         blah.render(10, 10);
         blah.deinit();
 

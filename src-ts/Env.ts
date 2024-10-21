@@ -171,6 +171,7 @@ export default class Env {
       width,
       height,
       flags,
+      this.events,
     );
     this.windows.set(window.id, window);
     return window.id;

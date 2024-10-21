@@ -4,6 +4,7 @@ interface Flavouring<FlavourT> {
 }
 type Flavour<T, FlavourT> = T & Flavouring<FlavourT>;
 
+export type SDL_MouseID = Flavour<number, "SDL_MouseID">;
 export type SDL_KeyboardID = Flavour<number, "SDL_KeyboardID">;
 export type SDL_RendererID = Flavour<number, "SDL_RendererID">;
 export type SDL_WindowID = Flavour<number, "SDL_WindowID">;
