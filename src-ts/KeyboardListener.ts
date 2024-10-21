@@ -214,7 +214,7 @@ export default class KeyboardListener {
     if (c) {
       if (c.mod) this.mod |= c.mod;
 
-      this.view.setInt32(c.scan, 1, true);
+      this.view.setUint8(c.scan, 1);
       this.events.push(
         new SDL_KeyboardEvent(
           SDL_EventType.SDL_EVENT_KEY_DOWN,
@@ -236,7 +236,7 @@ export default class KeyboardListener {
     if (c) {
       if (c.mod) this.mod &= ~c.mod;
 
-      this.view.setInt32(c.scan, 0, true);
+      this.view.setUint8(c.scan, 0);
       this.events.push(
         new SDL_KeyboardEvent(
           SDL_EventType.SDL_EVENT_KEY_UP,
