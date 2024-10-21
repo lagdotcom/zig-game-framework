@@ -12,9 +12,14 @@
     bool repeat;            // true if this is a key repeat
 } SDL_KeyboardEvent; */
 
-import { Nanoseconds, Ptr } from "../flavours";
+import { Nanoseconds } from "../flavours";
 import getNanosecondTimestamp from "../utils/getNanosecondTimestamp";
-import { SDL_KeyboardID, SDL_MouseID, SDL_WindowID } from "./flavours";
+import {
+  SDL_EventPtr,
+  SDL_KeyboardID,
+  SDL_MouseID,
+  SDL_WindowID,
+} from "./flavours";
 import SDL_EventType from "./SDL_EventType";
 import SDL_Keycode from "./SDL_Keycode";
 import SDL_Keymod from "./SDL_Keymod";
@@ -40,7 +45,7 @@ export class SDL_KeyboardEvent {
     this.timestamp = getNanosecondTimestamp();
   }
 
-  write(mem: WebAssembly.Memory, ptr: Ptr) {
+  write(mem: WebAssembly.Memory, ptr: SDL_EventPtr) {
     const view = new DataView(mem.buffer, ptr);
 
     view.setUint32(0, this.type, true);
@@ -86,7 +91,7 @@ export class SDL_MouseMotionEvent {
     this.timestamp = getNanosecondTimestamp();
   }
 
-  write(mem: WebAssembly.Memory, ptr: Ptr) {
+  write(mem: WebAssembly.Memory, ptr: SDL_EventPtr) {
     const view = new DataView(mem.buffer, ptr);
 
     view.setUint32(0, this.type, true);

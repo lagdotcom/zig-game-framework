@@ -1,5 +1,5 @@
 import Allocator from "./Allocator";
-import { Ptr } from "./flavours";
+import { SDL_KeyboardStatePtr } from "./sdl/flavours";
 import SDL_Event, { SDL_KeyboardEvent } from "./sdl/SDL_Event";
 import SDL_EventType from "./sdl/SDL_EventType";
 import KC from "./sdl/SDL_Keycode";
@@ -191,7 +191,7 @@ function getCodes(e: KeyboardEvent) {
 
 export default class KeyboardListener {
   mod: KM;
-  ptr: Ptr;
+  ptr: SDL_KeyboardStatePtr;
 
   constructor(
     private allocator: Allocator,

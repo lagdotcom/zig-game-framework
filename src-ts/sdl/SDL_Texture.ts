@@ -1,6 +1,7 @@
 import Allocator from "../Allocator";
-import { Pixels, Ptr } from "../flavours";
+import { Pixels } from "../flavours";
 import convertSurfaceToCanvas from "../utils/convertSurfaceToCanvas";
+import { SDL_TexturePtr } from "./flavours";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_Renderer from "./SDL_Renderer";
@@ -15,7 +16,7 @@ import SDL_Surface from "./SDL_Surface";
 }; */
 
 export default class SDL_Texture {
-  id: Ptr;
+  ptr: SDL_TexturePtr;
   canvas: OffscreenCanvas;
 
   constructor(
@@ -24,21 +25,21 @@ export default class SDL_Texture {
     surface: SDL_Surface,
     public name = surface.name,
   ) {
-    this.id = allocator.alloc(16);
+    this.ptr = allocator.alloc(16);
     this.format = 0;
     this.width = surface.width;
     this.height = surface.height;
-    this.refcount = 0;
+    this.refcount = 1;
 
     this.canvas = convertSurfaceToCanvas(surface);
   }
 
   destroy() {
-    this.allocator.free(this.id);
+    if (this.refcount-- < 1) this.allocator.free(this.ptr);
   }
 
   get view() {
-    return new DataView(this.allocator.mem.buffer, this.id, 16);
+    return new DataView(this.allocator.mem.buffer, this.ptr, 16);
   }
 
   get format() {

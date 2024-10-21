@@ -120,12 +120,12 @@ pub const Engine = struct {
         const things = sdl.SDL_GetKeyboardState(null);
         if (things[sdl.SDL_SCANCODE_LEFT] and self.char_x >= 10) {
             self.char_x -= 1;
-        } else if (things[sdl.SDL_SCANCODE_RIGHT] and self.char_x <= window_width - 10) {
+        } else if (things[sdl.SDL_SCANCODE_RIGHT] and @as(i32, @intFromFloat(self.char_x)) <= window_width - self.char_texture.width - 10) {
             self.char_x += 1;
         }
         if (things[sdl.SDL_SCANCODE_UP] and self.char_y >= 10) {
             self.char_y -= 1;
-        } else if (things[sdl.SDL_SCANCODE_DOWN] and self.char_y <= window_height - 10) {
+        } else if (things[sdl.SDL_SCANCODE_DOWN] and @as(i32, @intFromFloat(self.char_y)) <= window_height - self.char_texture.height - 10) {
             self.char_y += 1;
         }
 

@@ -57,8 +57,8 @@ export default class Allocator {
     return block;
   }
 
-  alloc(size: Bytes) {
-    const ptr = this.reserve(size);
+  alloc<T extends Ptr>(size: Bytes): T {
+    const ptr = this.reserve(size) as T;
 
     const view = new DataView(this.mem.buffer, ptr);
     for (let i = 0; i < size; i += 8) view.setBigInt64(i, 0n);
@@ -66,7 +66,7 @@ export default class Allocator {
     return ptr;
   }
 
-  free(ptr: Ptr) {
+  free<T extends Ptr>(ptr: T) {
     const index = this.blocks.findIndex((b) => b.addr === ptr);
     if (index < 0) throw new Error(`tried to free unallocated block @${ptr}`);
 

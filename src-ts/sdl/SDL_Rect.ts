@@ -1,4 +1,5 @@
-import { Pixels, Ptr } from "../flavours";
+import { Pixels } from "../flavours";
+import { SDL_RectPtr } from "./flavours";
 
 export default class SDL_Rect {
   constructor(
@@ -8,7 +9,7 @@ export default class SDL_Rect {
     public h: Pixels,
   ) {}
 
-  static fromPointer(buffer: ArrayBuffer, offset: Ptr) {
+  static fromPointer(buffer: ArrayBuffer, offset: SDL_RectPtr) {
     const view = new DataView(buffer, offset);
     const x = view.getInt32(0, true);
     const y = view.getInt32(4, true);

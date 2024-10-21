@@ -1,3 +1,4 @@
+import { FontName, FontPointSize } from "../flavours";
 import { TTF_FontID } from "./flavours";
 
 export default class TTF_Font {
@@ -6,8 +7,8 @@ export default class TTF_Font {
   id: TTF_FontID;
 
   constructor(
-    public face: string,
-    public size: number,
+    public face: FontName,
+    public size: FontPointSize,
   ) {
     this.id = TTF_Font.nextId++;
   }

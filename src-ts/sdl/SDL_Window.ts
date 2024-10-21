@@ -21,6 +21,7 @@ export default class SDL_Window {
   ) {
     this.id = SDL_Window.nextId++;
 
+    surface.refcount++;
     surface.canvas.width = width;
     surface.canvas.height = height;
     document.body.append(surface.canvas);
@@ -28,6 +29,12 @@ export default class SDL_Window {
     surface.canvas.addEventListener("mousemove", this.onMouseMove);
 
     console.log("SDL_Window", decomposeFlags(flags, SDL_WindowFlags));
+  }
+
+  destroy() {
+    this.surface.destroy();
+    this.surface.canvas.removeEventListener("mousemove", this.onMouseMove);
+    this.surface.canvas.remove();
   }
 
   onMouseMove = (e: MouseEvent) => {

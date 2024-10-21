@@ -1,7 +1,8 @@
 import Allocator from "../Allocator";
-import { Pixels, Ptr, RGBAValue } from "../flavours";
+import { Bytes, Pixels, Ptr, RGBAValue } from "../flavours";
 import { ImageResource } from "../Manifest";
 import makeCanvas from "../utils/makeCanvas";
+import { SDL_SurfacePtr } from "./flavours";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_SurfaceFlags from "./SDL_SurfaceFlags";
@@ -18,8 +19,8 @@ import SDL_SurfaceFlags from "./SDL_SurfaceFlags";
 }; */
 
 export default class SDL_Surface {
+  ptr: SDL_SurfacePtr;
   name: string;
-  id: Ptr;
   canvas: HTMLCanvasElement;
   colorKey?: RGBAValue;
   ctx: CanvasRenderingContext2D;
@@ -35,16 +36,16 @@ export default class SDL_Surface {
     this.canvas = canvas;
     this.ctx = ctx;
     this.loaded = true;
-    this.id = allocator.alloc(32);
-    this.name = `Surface<${this.id}>`;
+    this.ptr = allocator.alloc(32);
+    this.name = `Surface<${this.ptr}>`;
 
     this.flags = 0;
     this.format = SDL_PixelFormat.SDL_PIXELFORMAT_RGBA8888;
     this.width = width;
     this.height = height;
-    this.pitch = 4;
+    this.pitch = 4 * width;
     this.pixels = 0;
-    this.refcount = 0;
+    this.refcount = 1;
     this.reserved = 0;
   }
 
@@ -62,11 +63,11 @@ export default class SDL_Surface {
   }
 
   destroy() {
-    this.allocator.free(this.id);
+    if (this.refcount-- < 1) this.allocator.free(this.ptr);
   }
 
   get view() {
-    return new DataView(this.allocator.mem.buffer, this.id, 32);
+    return new DataView(this.allocator.mem.buffer, this.ptr, 32);
   }
 
   get flags() {
@@ -102,7 +103,7 @@ export default class SDL_Surface {
   get pitch() {
     return this.view.getInt32(16, true);
   }
-  set pitch(value: number) {
+  set pitch(value: Bytes) {
     this.view.setInt32(16, value, true);
   }
 
