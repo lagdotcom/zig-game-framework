@@ -10,13 +10,15 @@ pub fn main() !void {
 
     if (!builtin.target.isWasm()) {
         defer engine.deinit();
-        engine.run();
+        try engine.run();
     }
 }
 
 pub export fn tick() bool {
     engine.running = true;
-    engine.tick();
+    engine.tick() catch {
+        engine.running = false;
+    };
 
     return engine.running;
 }

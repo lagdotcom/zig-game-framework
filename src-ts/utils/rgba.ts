@@ -16,3 +16,12 @@ export function extractRGBA(v: RGBAValue) {
   const a: RGBAComponent = (v & 0xff000000) >> 24;
   return { r, g, b, a };
 }
+
+export function toRGBAString(
+  r: RGBAComponent,
+  g: RGBAComponent,
+  b: RGBAComponent,
+  a: RGBAComponent,
+) {
+  return `rgba(${r},${g},${b},${a})`;
+}

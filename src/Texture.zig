@@ -1,7 +1,6 @@
 const std = @import("std");
-const sdl = @cImport({
-    @cInclude("SDL3/SDL_image.h");
-});
+const sdl = @import("sdl.zig").sdl;
+
 pub const Texture = struct {
     renderer: *sdl.SDL_Renderer,
     texture: [*c]sdl.SDL_Texture,
@@ -15,9 +14,6 @@ pub const Texture = struct {
             return error.IMG_Load;
         }
         defer sdl.SDL_DestroySurface(surface);
-
-        const width = surface.*.w;
-        const height = surface.*.h;
 
         if (!sdl.SDL_SetSurfaceColorKey(surface, true, sdl.SDL_MapSurfaceRGB(surface, 0, 0xff, 0xff))) {
             std.debug.print("SDL_SetSurfaceColorKey: {s}", .{sdl.SDL_GetError()});
@@ -33,8 +29,30 @@ pub const Texture = struct {
         return Texture{
             .renderer = renderer,
             .texture = texture,
-            .width = width,
-            .height = height,
+            .width = surface.*.w,
+            .height = surface.*.h,
+        };
+    }
+
+    pub fn load_from_text(renderer: *sdl.SDL_Renderer, font: *sdl.TTF_Font, text: [*c]const u8, colour: sdl.SDL_Color) !Texture {
+        const surface = sdl.TTF_RenderText_Blended(font, text, 0, colour);
+        if (surface == null) {
+            std.debug.print("TTF_RenderText_Blended: {s}\n", .{sdl.SDL_GetError()});
+            return error.IMG_Load;
+        }
+        defer sdl.SDL_DestroySurface(surface);
+
+        const texture = sdl.SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture == null) {
+            std.debug.print("SDL_CreateTextureFromSurface: {s}", .{sdl.SDL_GetError()});
+            return error.SDL_CreateTextureFromSurface;
+        }
+
+        return Texture{
+            .renderer = renderer,
+            .texture = texture,
+            .width = surface.*.w,
+            .height = surface.*.h,
         };
     }
 

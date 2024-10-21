@@ -199,7 +199,7 @@ export default class KeyboardListener {
     private events: SDL_Event[],
   ) {
     this.mod = 0;
-    this.ptr = allocator.calloc(512);
+    this.ptr = allocator.alloc(512);
 
     element.addEventListener("keydown", this.keyDown);
     element.addEventListener("keyup", this.keyUp);

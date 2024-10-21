@@ -1,9 +1,7 @@
 const std = @import("std");
-const sdl = @cImport({
-    @cInclude("SDL3/SDL_image.h");
-});
+const sdl = @import("sdl.zig").sdl;
 
-const Texture = @import("./Texture.zig").Texture;
+const Texture = @import("Texture.zig").Texture;
 
 const window_width = 800;
 const window_height = 600;
@@ -15,6 +13,7 @@ pub const Engine = struct {
     char_texture: Texture,
     char_x: f32,
     char_y: f32,
+    font: *sdl.TTF_Font,
     running: bool,
 
     pub fn init() !Engine {
@@ -54,17 +53,31 @@ pub const Engine = struct {
         }
         errdefer sdl.IMG_Quit();
 
+        if (!sdl.TTF_Init()) {
+            std.log.debug("IMG_Init: {s}", .{sdl.SDL_GetError()});
+            return error.IMG_Init;
+        }
+        errdefer sdl.TTF_Quit();
+
         var bg_texture = try Texture.load_from_file(renderer, "res/background.png");
         errdefer bg_texture.deinit();
 
         var char_texture = try Texture.load_from_file(renderer, "res/char.png");
         errdefer char_texture.deinit();
 
+        const font = sdl.TTF_OpenFont("C:\\Windows\\Fonts\\baskvill.ttf", 28);
+        if (font == null) {
+            std.log.debug("TTF_OpenFont: {s}", .{sdl.SDL_GetError()});
+            return error.TTF_OpenFont;
+        }
+        errdefer sdl.TTF_CloseFont(font);
+
         return Engine{
             .window = window.?,
             .renderer = renderer,
             .bg_texture = bg_texture,
             .char_texture = char_texture,
+            .font = font.?,
             .char_x = 240,
             .char_y = 190,
             .running = false,
@@ -72,20 +85,22 @@ pub const Engine = struct {
     }
 
     pub fn deinit(self: *Engine) void {
+        sdl.TTF_CloseFont(self.font);
         self.char_texture.deinit();
         self.bg_texture.deinit();
+        sdl.TTF_Quit();
+        sdl.IMG_Quit();
         sdl.SDL_DestroyRenderer(self.renderer);
         sdl.SDL_DestroyWindow(self.window);
-        sdl.IMG_Quit();
         sdl.SDL_Quit();
     }
 
-    pub fn run(self: *Engine) void {
+    pub fn run(self: *Engine) !void {
         self.running = true;
-        while (self.running) self.tick();
+        while (self.running) try self.tick();
     }
 
-    pub fn tick(self: *Engine) void {
+    pub fn tick(self: *Engine) !void {
         var e: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&e)) {
             if (e.type == sdl.SDL_EVENT_QUIT) {
@@ -111,6 +126,11 @@ pub const Engine = struct {
 
         self.bg_texture.render(0, 0);
         self.char_texture.render(self.char_x, self.char_y);
+
+        const colour = sdl.SDL_Color{ .r = 11, .g = 22, .b = 33, .a = 255 };
+        var blah = try Texture.load_from_text(self.renderer, self.font, "hello there", colour);
+        blah.render(10, 10);
+        blah.deinit();
 
         _ = sdl.SDL_RenderPresent(self.renderer);
     }

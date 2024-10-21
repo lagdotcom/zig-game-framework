@@ -23,6 +23,7 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
     exe.linkSystemLibrary("SDL3");
     exe.linkSystemLibrary("SDL3_image");
+    exe.linkSystemLibrary("SDL3_ttf");
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -30,6 +31,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
     b.installBinFile("lib/SDL3.dll", "SDL3.dll");
     b.installBinFile("lib/SDL3_image.dll", "SDL3_image.dll");
+    b.installBinFile("lib/SDL3_ttf.dll", "SDL3_ttf.dll");
 
     const wasm_target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .emscripten });
     const wasm = b.addExecutable(.{

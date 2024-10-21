@@ -1,3 +1,4 @@
+import { makeOffscreenCanvas } from "../utils/makeCanvas";
 import { SDL_RendererID } from "./flavours";
 import SDL_FRect from "./SDL_FRect";
 import SDL_Rect from "./SDL_Rect";
@@ -14,13 +15,15 @@ export default class SDL_Renderer {
 
   constructor(private window: SDL_Window) {
     this.id = SDL_Renderer.nextId++;
-    this.canvas = new OffscreenCanvas(window.width, window.height);
     this.color = "black";
 
-    const ctx = this.canvas.getContext("2d");
-    if (!ctx) throw new Error("OffscreenCanvas.getContext");
+    const { canvas, ctx } = makeOffscreenCanvas(window.width, window.height);
+    this.canvas = canvas;
     this.ctx = ctx;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  destroy() {}
 
   get rect() {
     return new SDL_Rect(0, 0, this.canvas.width, this.canvas.height);
@@ -38,10 +41,7 @@ export default class SDL_Renderer {
   }
 
   render(t: SDL_Texture, s: SDL_FRect, d: SDL_FRect) {
-    if (t.bitmap)
-      this.ctx.drawImage(t.bitmap, s.x, s.y, s.w, s.h, d.x, d.y, d.w, d.h);
-    else console.warn(`${t.name} not loaded yet`);
-
+    this.ctx.drawImage(t.canvas, s.x, s.y, s.w, s.h, d.x, d.y, d.w, d.h);
     return true;
   }
 }

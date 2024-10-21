@@ -1,6 +1,6 @@
 import Allocator from "../Allocator";
 import { Pixels, Ptr } from "../flavours";
-import convertCanvasToBitmap from "../utils/convertCanvasToBitmap";
+import convertSurfaceToCanvas from "../utils/convertSurfaceToCanvas";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_Renderer from "./SDL_Renderer";
@@ -16,7 +16,7 @@ import SDL_Surface from "./SDL_Surface";
 
 export default class SDL_Texture {
   id: Ptr;
-  bitmap?: ImageBitmap;
+  canvas: OffscreenCanvas;
 
   constructor(
     private allocator: Allocator,
@@ -30,7 +30,11 @@ export default class SDL_Texture {
     this.height = surface.height;
     this.refcount = 0;
 
-    convertCanvasToBitmap(surface).then((bitmap) => (this.bitmap = bitmap));
+    this.canvas = convertSurfaceToCanvas(surface);
+  }
+
+  destroy() {
+    this.allocator.free(this.id);
   }
 
   get view() {

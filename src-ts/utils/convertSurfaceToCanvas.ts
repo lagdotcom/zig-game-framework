@@ -1,7 +1,8 @@
 import SDL_Surface from "../sdl/SDL_Surface";
+import { makeOffscreenCanvas } from "./makeCanvas";
 import { extractRGBA } from "./rgba";
 
-export default function convertCanvasToBitmap(surface: SDL_Surface) {
+export default function convertSurfaceToCanvas(surface: SDL_Surface) {
   const id = surface.ctx.getImageData(0, 0, surface.width, surface.height);
 
   if (typeof surface.colorKey === "number") {
@@ -17,5 +18,7 @@ export default function convertCanvasToBitmap(surface: SDL_Surface) {
     }
   }
 
-  return window.createImageBitmap(id);
+  const { canvas, ctx } = makeOffscreenCanvas(surface.width, surface.height);
+  ctx.putImageData(id, 0, 0);
+  return canvas;
 }

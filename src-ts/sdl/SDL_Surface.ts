@@ -1,6 +1,7 @@
 import Allocator from "../Allocator";
 import { Pixels, Ptr, RGBAValue } from "../flavours";
 import { ImageResource } from "../Manifest";
+import makeCanvas from "../utils/makeCanvas";
 import SDL_PixelFormat from "./SDL_PixelFormat";
 import SDL_Rect from "./SDL_Rect";
 import SDL_SurfaceFlags from "./SDL_SurfaceFlags";
@@ -29,9 +30,7 @@ export default class SDL_Surface {
     width: Pixels = 0,
     height: Pixels = 0,
   ) {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Could not get canvas context");
+    const { canvas, ctx } = makeCanvas(width, height);
 
     this.canvas = canvas;
     this.ctx = ctx;
@@ -60,6 +59,10 @@ export default class SDL_Surface {
     surface.loaded = true;
 
     return surface;
+  }
+
+  destroy() {
+    this.allocator.free(this.id);
   }
 
   get view() {

@@ -10,7 +10,7 @@ import {
 } from "./flavours";
 import KeyboardListener from "./KeyboardListener";
 import { ResourceMap } from "./Manifest";
-import { SDL_RendererID, SDL_WindowID } from "./sdl/flavours";
+import { SDL_RendererID, SDL_WindowID, TTF_FontID } from "./sdl/flavours";
 import IMG_InitFlags from "./sdl/IMG_InitFlags";
 import {
   SDL_PROP_APP_METADATA_IDENTIFIER_STRING,
@@ -26,8 +26,10 @@ import SDL_Surface from "./sdl/SDL_Surface";
 import SDL_Texture from "./sdl/SDL_Texture";
 import SDL_Window from "./sdl/SDL_Window";
 import SDL_WindowFlags from "./sdl/SDL_WindowFlags";
+import TTF_Font from "./sdl/TTF_Font";
 import decomposeFlags from "./utils/decomposeFlags";
-import { createRGBA } from "./utils/rgba";
+import makeCanvas from "./utils/makeCanvas";
+import { createRGBA, toRGBAString } from "./utils/rgba";
 
 const stub =
   (name: string) =>
@@ -51,17 +53,29 @@ export default class Env {
   mem!: WebAssembly.Memory;
   keys!: KeyboardListener;
 
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
   events: SDL_Event[];
   imageInit: IMG_InitFlags;
+
+  fonts: Map<TTF_FontID, TTF_Font>;
   metadata: Map<string, string>;
   renderers: Map<SDL_RendererID, SDL_Renderer>;
   surfaces: Map<Ptr, SDL_Surface>;
   textures: Map<Ptr, SDL_Texture>;
   windows: Map<SDL_WindowID, SDL_Window>;
 
-  constructor(public resources: ResourceMap) {
+  constructor(
+    public resources: ResourceMap,
+    public fontTranslation: Partial<Record<string, string>>,
+  ) {
+    const { canvas, ctx } = makeCanvas(0, 0);
+    this.canvas = canvas;
+    this.ctx = ctx;
+
     this.imageInit = 0;
     this.events = [];
+    this.fonts = new Map();
     this.metadata = new Map();
     this.renderers = new Map();
     this.surfaces = new Map();
@@ -111,6 +125,16 @@ export default class Env {
     return SDL_FRect.fromPointer(this.mem.buffer, offset);
   }
 
+  colour(offset: Ptr) {
+    const view = new DataView(this.mem.buffer, offset);
+
+    const r: RGBAComponent = view.getUint8(0);
+    const g: RGBAComponent = view.getUint8(1);
+    const b: RGBAComponent = view.getUint8(2);
+    const a: RGBAComponent = view.getUint8(3);
+    return { r, g, b, a };
+  }
+
   loadResourceAsImage(data: string) {
     const img = this.resources[data];
     if (img.type !== "image")
@@ -125,6 +149,7 @@ export default class Env {
   SDL_DestroyWindow = stub("SDL_DestroyWindow");
   SDL_GetError = stub("SDL_GetError");
   SDL_Quit = stub("SDL_Quit");
+  TTF_Quit = stub("TTF_Quit");
 
   SDL_Init = (type: SDL_InitFlags) => {
     console.log("SDL_Init", decomposeFlags(type, SDL_InitFlags));
@@ -202,7 +227,16 @@ export default class Env {
     return renderer.id;
   };
 
-  SDL_DestroyRenderer = (rID: SDL_RendererID) => this.renderers.delete(rID);
+  SDL_DestroyRenderer = (rID: SDL_RendererID) => {
+    const renderer = this.renderers.get(rID);
+    if (renderer) {
+      renderer.destroy();
+      this.renderers.delete(rID);
+      return true;
+    }
+
+    return false;
+  };
 
   IMG_Init = (flags: IMG_InitFlags) => {
     console.log("IMG_Init", decomposeFlags(flags, IMG_InitFlags));
@@ -267,9 +301,27 @@ export default class Env {
   SDL_RenderPresent = (rID: SDL_RendererID) =>
     this.renderers.get(rID)?.present() ?? false;
 
-  SDL_DestroySurface = (sID: Ptr) => this.surfaces.delete(sID);
+  SDL_DestroySurface = (sID: Ptr) => {
+    const surface = this.surfaces.get(sID);
+    if (surface) {
+      surface.destroy();
+      this.surfaces.delete(sID);
+      return true;
+    }
 
-  SDL_DestroyTexture = (tID: Ptr) => this.textures.delete(tID);
+    return false;
+  };
+
+  SDL_DestroyTexture = (tID: Ptr) => {
+    const texture = this.textures.get(tID);
+    if (texture) {
+      texture.destroy();
+      this.textures.delete(tID);
+      return true;
+    }
+
+    return false;
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   SDL_GetKeyboardState = (ptr: Ptr) => this.keys.ptr;
@@ -311,6 +363,50 @@ export default class Env {
 
     this.metadata.set(name, value);
     return true;
+  };
+
+  TTF_Init = () => {
+    console.log("TTF_Init");
+    return true;
+  };
+
+  TTF_OpenFont = (pName: StringPtr, size: number) => {
+    const face = this.strZ(pName);
+    const font = new TTF_Font(this.fontTranslation[face] ?? face, size);
+
+    this.fonts.set(font.id, font);
+    return font.id;
+  };
+
+  TTF_RenderText_Blended = (
+    fID: TTF_FontID,
+    pText: StringPtr,
+    length: number,
+    pColour: Ptr,
+  ) => {
+    const font = this.fonts.get(fID);
+    const text = this.strZ(pText);
+    if (!font) return 0;
+
+    this.ctx.font = font.font;
+    const metrics = this.ctx.measureText(text);
+
+    const surface = new SDL_Surface(
+      this.allocator,
+      metrics.actualBoundingBoxRight + metrics.actualBoundingBoxLeft,
+      metrics.fontBoundingBoxDescent + metrics.fontBoundingBoxAscent,
+    );
+
+    const fg = this.colour(pColour);
+    surface.ctx.fillStyle = toRGBAString(fg.r, fg.g, fg.b, fg.a);
+    surface.ctx.font = font.font;
+    surface.ctx.textBaseline = "top";
+    surface.ctx.textAlign = "left";
+
+    surface.ctx.fillText(text, 0, 0);
+    surface.loaded = true;
+    this.surfaces.set(surface.id, surface);
+    return surface.id;
   };
 
   write = (fd: FileDescriptor, buf: StringPtr, count: Bytes) => {

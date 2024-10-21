@@ -14,7 +14,9 @@ const manifest: Manifest = {
 
 async function main() {
   const [wasmPromise, resources] = await fetchManifest(manifest);
-  const env = new Env(resources);
+  const env = new Env(resources, {
+    "C:\\Windows\\Fonts\\baskvill.ttf": "Baskerville",
+  });
   const src = await WebAssembly.instantiateStreaming(wasmPromise, {
     env: env as unknown as WebAssembly.ModuleImports,
   });
