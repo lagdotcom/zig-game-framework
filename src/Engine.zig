@@ -10,13 +10,13 @@ var str_buffer = [_]u8{0} ** 128;
 
 pub const Engine = struct {
     running: bool,
-    window: *sdl.SDL_Window,
-    renderer: *sdl.SDL_Renderer,
+    window: ?*sdl.SDL_Window,
+    renderer: ?*sdl.SDL_Renderer,
     bg_texture: Texture,
     char_texture: Texture,
     char_x: f32,
     char_y: f32,
-    font: *sdl.TTF_Font,
+    font: ?*sdl.TTF_Font,
     mouse_x: f32,
     mouse_y: f32,
 
@@ -41,13 +41,12 @@ pub const Engine = struct {
         }
         errdefer sdl.SDL_DestroyWindow(window);
 
-        const maybe_renderer = sdl.SDL_CreateRenderer(window, null);
-        if (maybe_renderer == null) {
+        const renderer = sdl.SDL_CreateRenderer(window, null);
+        if (renderer == null) {
             std.debug.print("SDL_CreateRenderer: {s}\n", .{sdl.SDL_GetError()});
             return error.SDL_CreateRenderer;
         }
-        errdefer sdl.SDL_DestroyRenderer(maybe_renderer);
-        const renderer = maybe_renderer.?;
+        errdefer sdl.SDL_DestroyRenderer(renderer);
 
         const desired = sdl.IMG_INIT_PNG;
         const loaded = sdl.IMG_Init(desired);
@@ -77,11 +76,11 @@ pub const Engine = struct {
         errdefer sdl.TTF_CloseFont(font);
 
         return Engine{
-            .window = window.?,
+            .window = window,
             .renderer = renderer,
             .bg_texture = bg_texture,
             .char_texture = char_texture,
-            .font = font.?,
+            .font = font,
             .char_x = 240,
             .char_y = 190,
             .mouse_x = -1,

@@ -2,12 +2,12 @@ const std = @import("std");
 const sdl = @import("sdl.zig").sdl;
 
 pub const Texture = struct {
-    renderer: *sdl.SDL_Renderer,
+    renderer: ?*sdl.SDL_Renderer,
     texture: [*c]sdl.SDL_Texture,
     width: c_int,
     height: c_int,
 
-    pub fn load_from_file(renderer: *sdl.SDL_Renderer, path: [*c]const u8) !Texture {
+    pub fn load_from_file(renderer: ?*sdl.SDL_Renderer, path: [*c]const u8) !Texture {
         const surface = sdl.IMG_Load(path);
         if (surface == null) {
             std.debug.print("IMG_Load: {s}\n", .{sdl.SDL_GetError()});
@@ -34,7 +34,7 @@ pub const Texture = struct {
         };
     }
 
-    pub fn load_from_text(renderer: *sdl.SDL_Renderer, font: *sdl.TTF_Font, text: [*c]const u8, colour: sdl.SDL_Color) !Texture {
+    pub fn load_from_text(renderer: ?*sdl.SDL_Renderer, font: ?*sdl.TTF_Font, text: [*c]const u8, colour: sdl.SDL_Color) !Texture {
         const surface = sdl.TTF_RenderText_Blended(font, text, 0, colour);
         if (surface == null) {
             std.debug.print("TTF_RenderText_Blended: {s}\n", .{sdl.SDL_GetError()});
