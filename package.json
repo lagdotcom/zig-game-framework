@@ -1,6 +1,6 @@
 {
   "name": "zig-game",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "SDL3 game in Zig!",
   "author": "Paul Davies <lagdotcom@gmail.com>",
   "license": "UNLICENSED",

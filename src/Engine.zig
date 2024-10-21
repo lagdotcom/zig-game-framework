@@ -3,44 +3,28 @@ const sdl = @cImport({
     @cInclude("SDL3/SDL_image.h");
 });
 
+const Texture = @import("./Texture.zig").Texture;
+
 const window_width = 800;
 const window_height = 600;
 
-fn load_texture_from_file(renderer: *sdl.SDL_Renderer, path: [*c]const u8) !*sdl.SDL_Texture {
-    const surface = sdl.IMG_Load(path);
-    if (surface == null) {
-        std.debug.print("IMG_Load: {s}\n", .{sdl.SDL_GetError()});
-        return error.IMG_Load;
-    }
-
-    if (!sdl.SDL_SetSurfaceColorKey(surface, true, sdl.SDL_MapSurfaceRGB(surface, 0, 0xff, 0xff))) {
-        std.debug.print("SDL_SetSurfaceColorKey: {s}", .{sdl.SDL_GetError()});
-
-        sdl.SDL_DestroySurface(surface);
-        return error.SDL_SetSurfaceColorKey;
-    }
-
-    const texture = sdl.SDL_CreateTextureFromSurface(renderer, surface);
-    if (texture == null) {
-        std.debug.print("SDL_CreateTextureFromSurface: {s}", .{sdl.SDL_GetError()});
-
-        sdl.SDL_DestroySurface(surface);
-        return error.SDL_CreateTextureFromSurface;
-    }
-    sdl.SDL_DestroySurface(surface);
-
-    return texture;
-}
-
-pub const Engine = extern struct {
+pub const Engine = struct {
     window: *sdl.SDL_Window,
     renderer: *sdl.SDL_Renderer,
-    bg_texture: *sdl.SDL_Texture,
-    char_texture: *sdl.SDL_Texture,
-    char_rect: sdl.SDL_FRect,
+    bg_texture: Texture,
+    char_texture: Texture,
+    char_x: f32,
+    char_y: f32,
     running: bool,
 
     pub fn init() !Engine {
+        if (!sdl.SDL_SetAppMetadata("Space Colony TCG", "0.1.0", "com.sadfolks.spacecolonytcg"))
+            std.log.debug("SDL_SetAppMetadata: {s}", .{sdl.SDL_GetError()});
+        if (!sdl.SDL_SetAppMetadataProperty(sdl.SDL_PROP_APP_METADATA_CREATOR_STRING, "Sad Folks"))
+            std.log.debug("SDL_SetAppMetadataProperty creator: {s}", .{sdl.SDL_GetError()});
+        if (!sdl.SDL_SetAppMetadataProperty(sdl.SDL_PROP_APP_METADATA_TYPE_STRING, "game"))
+            std.log.debug("SDL_SetAppMetadataProperty type: {s}", .{sdl.SDL_GetError()});
+
         if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO)) {
             std.debug.print("SDL_Init: {s}\n", .{sdl.SDL_GetError()});
             return error.SDL_Init;
@@ -54,12 +38,13 @@ pub const Engine = extern struct {
         }
         errdefer sdl.SDL_DestroyWindow(window);
 
-        const renderer = sdl.SDL_CreateRenderer(window, null);
-        if (renderer == null) {
+        const maybe_renderer = sdl.SDL_CreateRenderer(window, null);
+        if (maybe_renderer == null) {
             std.debug.print("SDL_CreateRenderer: {s}\n", .{sdl.SDL_GetError()});
             return error.SDL_CreateRenderer;
         }
-        errdefer sdl.SDL_DestroyRenderer(renderer);
+        errdefer sdl.SDL_DestroyRenderer(maybe_renderer);
+        const renderer = maybe_renderer.?;
 
         const desired = sdl.IMG_INIT_PNG;
         const loaded = sdl.IMG_Init(desired);
@@ -69,25 +54,26 @@ pub const Engine = extern struct {
         }
         errdefer sdl.IMG_Quit();
 
-        const bg_texture = try load_texture_from_file(renderer.?, "res/background.png");
-        errdefer sdl.SDL_DestroyTexture(bg_texture);
+        var bg_texture = try Texture.load_from_file(renderer, "res/background.png");
+        errdefer bg_texture.deinit();
 
-        const char_texture = try load_texture_from_file(renderer.?, "res/char.png");
-        errdefer sdl.SDL_DestroyTexture(char_texture);
+        var char_texture = try Texture.load_from_file(renderer, "res/char.png");
+        errdefer char_texture.deinit();
 
         return Engine{
             .window = window.?,
-            .renderer = renderer.?,
+            .renderer = renderer,
             .bg_texture = bg_texture,
             .char_texture = char_texture,
-            .char_rect = sdl.SDL_FRect{ .x = 240, .y = 190, .w = @floatFromInt(char_texture.w), .h = @floatFromInt(char_texture.h) },
+            .char_x = 240,
+            .char_y = 190,
             .running = false,
         };
     }
 
     pub fn deinit(self: *Engine) void {
-        sdl.SDL_DestroyTexture(self.char_texture);
-        sdl.SDL_DestroyTexture(self.bg_texture);
+        self.char_texture.deinit();
+        self.bg_texture.deinit();
         sdl.SDL_DestroyRenderer(self.renderer);
         sdl.SDL_DestroyWindow(self.window);
         sdl.IMG_Quit();
@@ -109,29 +95,22 @@ pub const Engine = extern struct {
         }
 
         const things = sdl.SDL_GetKeyboardState(null);
-        if (things[sdl.SDL_SCANCODE_LEFT] and self.char_rect.x >= 10) {
-            self.char_rect.x -= 1;
-        } else if (things[sdl.SDL_SCANCODE_RIGHT] and self.char_rect.x <= window_width - 10) {
-            self.char_rect.x += 1;
+        if (things[sdl.SDL_SCANCODE_LEFT] and self.char_x >= 10) {
+            self.char_x -= 1;
+        } else if (things[sdl.SDL_SCANCODE_RIGHT] and self.char_x <= window_width - 10) {
+            self.char_x += 1;
         }
-        if (things[sdl.SDL_SCANCODE_UP] and self.char_rect.y >= 10) {
-            self.char_rect.y -= 1;
-        } else if (things[sdl.SDL_SCANCODE_DOWN] and self.char_rect.y <= window_height - 10) {
-            self.char_rect.y += 1;
+        if (things[sdl.SDL_SCANCODE_UP] and self.char_y >= 10) {
+            self.char_y -= 1;
+        } else if (things[sdl.SDL_SCANCODE_DOWN] and self.char_y <= window_height - 10) {
+            self.char_y += 1;
         }
 
         _ = sdl.SDL_SetRenderDrawColor(self.renderer, 0xff, 0xff, 0xff, 0xff);
         _ = sdl.SDL_RenderClear(self.renderer);
 
-        var dest = sdl.SDL_FRect{
-            .x = 0,
-            .y = 0,
-            .w = @floatFromInt(self.bg_texture.w),
-            .h = @floatFromInt(self.bg_texture.h),
-        };
-        _ = sdl.SDL_RenderTexture(self.renderer, self.bg_texture, null, &dest);
-
-        _ = sdl.SDL_RenderTexture(self.renderer, self.char_texture, null, &self.char_rect);
+        self.bg_texture.render(0, 0);
+        self.char_texture.render(self.char_x, self.char_y);
 
         _ = sdl.SDL_RenderPresent(self.renderer);
     }

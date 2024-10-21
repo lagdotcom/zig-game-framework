@@ -5,7 +5,6 @@ interface Flavouring<FlavourT> {
 type Flavour<T, FlavourT> = T & Flavouring<FlavourT>;
 
 export type Bytes = Flavour<number, "Bytes">;
-export type EnginePtr = Flavour<number, "EnginePtr">;
 export type FileDescriptor = Flavour<number, "FileDescriptor">;
 export type Pixels = Flavour<number, "Pixels">;
 export type Ptr = Flavour<number, "Ptr">;

@@ -1,7 +1,6 @@
 import Allocator from "./Allocator";
 import {
   Bytes,
-  EnginePtr,
   FileDescriptor,
   Pixels,
   Ptr,
@@ -13,6 +12,11 @@ import KeyboardListener from "./KeyboardListener";
 import { ResourceMap } from "./Manifest";
 import { SDL_RendererID, SDL_WindowID } from "./sdl/flavours";
 import IMG_InitFlags from "./sdl/IMG_InitFlags";
+import {
+  SDL_PROP_APP_METADATA_IDENTIFIER_STRING,
+  SDL_PROP_APP_METADATA_NAME_STRING,
+  SDL_PROP_APP_METADATA_VERSION_STRING,
+} from "./sdl/metadataKeys";
 import SDL_Event from "./sdl/SDL_Event";
 import SDL_FRect from "./sdl/SDL_FRect";
 import SDL_InitFlags from "./sdl/SDL_InitFlags";
@@ -39,17 +43,17 @@ const supportedImageFlags =
 export interface EngineExports {
   memory: WebAssembly.Memory;
   main(): void;
-  tick(engine: EnginePtr): boolean;
+  tick(): boolean;
 }
 
 export default class Env {
   allocator!: Allocator;
   mem!: WebAssembly.Memory;
-  engine!: EnginePtr;
   keys!: KeyboardListener;
 
   events: SDL_Event[];
   imageInit: IMG_InitFlags;
+  metadata: Map<string, string>;
   renderers: Map<SDL_RendererID, SDL_Renderer>;
   surfaces: Map<Ptr, SDL_Surface>;
   textures: Map<Ptr, SDL_Texture>;
@@ -58,6 +62,7 @@ export default class Env {
   constructor(public resources: ResourceMap) {
     this.imageInit = 0;
     this.events = [];
+    this.metadata = new Map();
     this.renderers = new Map();
     this.surfaces = new Map();
     this.textures = new Map();
@@ -76,19 +81,14 @@ export default class Env {
     );
 
     x.main();
-    if (!this.engine) throw new Error("setEngineAddress not called");
 
     console.log(this);
     const tick = () => {
-      const running = x.tick(this.engine);
+      const running = x.tick();
       if (running) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
-
-  setEngineAddress = (addr: EnginePtr) => {
-    this.engine = addr;
-  };
 
   str(offset: StringPtr, count: Bytes) {
     return utf8Decoder.decode(this.mem.buffer.slice(offset, offset + count));
@@ -287,6 +287,29 @@ export default class Env {
     if (!surface) return false;
 
     surface.colorKey = enabled ? key : undefined;
+    return true;
+  };
+
+  SDL_SetAppMetadata = (
+    pName: StringPtr,
+    pVersion: StringPtr,
+    pIdentifier: StringPtr,
+  ) => {
+    const name = this.strZ(pName);
+    const version = this.strZ(pVersion);
+    const identifier = this.strZ(pIdentifier);
+
+    this.metadata.set(SDL_PROP_APP_METADATA_NAME_STRING, name);
+    this.metadata.set(SDL_PROP_APP_METADATA_VERSION_STRING, version);
+    this.metadata.set(SDL_PROP_APP_METADATA_IDENTIFIER_STRING, identifier);
+    return true;
+  };
+
+  SDL_SetAppMetadataProperty = (pName: StringPtr, pValue: StringPtr) => {
+    const name = this.strZ(pName);
+    const value = this.strZ(pValue);
+
+    this.metadata.set(name, value);
     return true;
   };
 

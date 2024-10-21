@@ -3,20 +3,18 @@ const std = @import("std");
 
 const Engine = @import("Engine.zig").Engine;
 
-extern fn setEngineAddress(engine: *Engine) void;
+var engine: Engine = undefined;
 
 pub fn main() !void {
-    var engine = try Engine.init();
+    engine = try Engine.init();
 
-    if (builtin.target.isWasm()) {
-        setEngineAddress(&engine);
-    } else {
+    if (!builtin.target.isWasm()) {
         defer engine.deinit();
         engine.run();
     }
 }
 
-pub export fn tick(engine: *Engine) bool {
+pub export fn tick() bool {
     engine.running = true;
     engine.tick();
 
