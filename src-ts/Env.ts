@@ -3,7 +3,6 @@ import {
   Bytes,
   FileDescriptor,
   FontName,
-  FontPointSize,
   Int32Ptr,
   Pixels,
   RGBAComponent,
@@ -40,8 +39,8 @@ import SDL_Window from "./sdl/SDL_Window";
 import SDL_WindowFlags from "./sdl/SDL_WindowFlags";
 import TTF_Font from "./sdl/TTF_Font";
 import decomposeFlags from "./utils/decomposeFlags";
-import makeCanvas from "./utils/makeCanvas";
 import { createRGBA, toRGBAString } from "./utils/rgba";
+import WordWrapper from "./WordWrapper";
 
 const stub =
   (name: string) =>
@@ -77,9 +76,8 @@ export default class Env {
   error!: StringPtr;
   mem!: WebAssembly.Memory;
   keys!: KeyboardListener;
+  wrapper: WordWrapper;
 
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
   events: SDL_Event[];
   imageInit: IMG_InitFlags;
 
@@ -94,17 +92,16 @@ export default class Env {
   SDL_DestroySurface: (pSurface: SDL_SurfacePtr) => boolean;
   SDL_DestroyTexture: (pSurface: SDL_TexturePtr) => boolean;
   SDL_DestroyWindow: (wID: SDL_WindowID) => boolean;
+  TTF_CloseFont: (fID: TTF_FontID) => boolean;
 
   constructor(
     public resources: ResourceMap,
     public fontTranslation: Partial<Record<string, FontName>>,
   ) {
-    const { canvas, ctx } = makeCanvas(0, 0);
-    this.canvas = canvas;
-    this.ctx = ctx;
-
+    this.wrapper = new WordWrapper();
     this.imageInit = 0;
     this.events = [];
+
     this.fonts = new Map();
     this.metadata = new Map();
     this.renderers = new Map();
@@ -116,6 +113,7 @@ export default class Env {
     this.SDL_DestroySurface = destroyer(this.surfaces);
     this.SDL_DestroyTexture = destroyer(this.textures);
     this.SDL_DestroyWindow = destroyer(this.windows);
+    this.TTF_CloseFont = destroyer(this.fonts);
   }
 
   start(x: EngineExports) {
@@ -123,7 +121,7 @@ export default class Env {
     (window as any).env = this;
     this.mem = x.memory;
     this.allocator = new Allocator(x.memory);
-    this.error = this.allocator.alloc(128);
+    this.error = this.allocator.alloc(128, "errorBuffer");
     this.keys = new KeyboardListener(
       this.allocator,
       document.body,
@@ -207,7 +205,7 @@ export default class Env {
     height: Pixels,
     flags: SDL_WindowFlags,
   ) => {
-    const surface = new SDL_Surface(this.allocator, width, height);
+    const surface = new SDL_Surface(this.allocator, "Window", width, height);
     this.surfaces.set(surface.ptr, surface);
 
     const window = new SDL_Window(
@@ -318,7 +316,7 @@ export default class Env {
     const renderer = this.renderers.get(rID);
     if (!renderer) return false;
 
-    renderer.color = `rgba(${r},${g},${b},${a})`;
+    renderer.drawColor = `rgba(${r},${g},${b},${a})`;
     return true;
   };
 
@@ -336,7 +334,7 @@ export default class Env {
     if (!r || !t) return false;
 
     const src = pSource ? this.floatRect(pSource) : t.rect;
-    const dst = pDestination ? this.floatRect(pDestination) : src;
+    const dst = pDestination ? this.floatRect(pDestination) : r.rect;
 
     return r.render(t, src, dst);
   };
@@ -395,7 +393,7 @@ export default class Env {
     return true;
   };
 
-  TTF_OpenFont = (pName: StringPtr, size: FontPointSize) => {
+  TTF_OpenFont = (pName: StringPtr, size: Pixels) => {
     const face = this.strZ(pName);
     const font = new TTF_Font(this.fontTranslation[face] ?? face, size);
 
@@ -408,19 +406,26 @@ export default class Env {
     pText: StringPtr,
     length: Bytes,
     pColour: SDL_ColorPtr,
+  ) => this.TTF_RenderText_Blended_Wrapped(fID, pText, length, pColour, 0);
+
+  TTF_RenderText_Blended_Wrapped = (
+    fID: TTF_FontID,
+    pText: StringPtr,
+    length: Bytes,
+    pColour: SDL_ColorPtr,
+    wrapWidth: number,
   ) => {
     const font = this.fonts.get(fID);
     if (!font) return 0;
 
     const text = length ? this.str(pText, length) : this.strZ(pText);
 
-    this.ctx.font = font.font;
-    const metrics = this.ctx.measureText(text);
-
+    const { lines, size } = this.wrapper.measure(font, text, wrapWidth);
     const surface = new SDL_Surface(
       this.allocator,
-      metrics.actualBoundingBoxRight + metrics.actualBoundingBoxLeft,
-      metrics.fontBoundingBoxDescent + metrics.fontBoundingBoxAscent,
+      `Text<${text}>`,
+      size.width,
+      size.height,
     );
 
     const fg = this.colour(pColour);
@@ -429,10 +434,32 @@ export default class Env {
     surface.ctx.textBaseline = "top";
     surface.ctx.textAlign = "left";
 
-    surface.ctx.fillText(text, 0, 0);
+    const rowHeight = size.height / lines.length;
+    let y = 0;
+    for (const line of lines) {
+      surface.ctx.fillText(line, 0, y);
+      y += rowHeight;
+    }
+
     surface.loaded = true;
     this.surfaces.set(surface.ptr, surface);
     return surface.ptr;
+  };
+
+  SDL_RenderFillRect = (rID: SDL_RendererID, pFRect: SDL_FRectPtr) => {
+    const renderer = this.renderers.get(rID);
+    if (!renderer) return false;
+
+    const rect = this.floatRect(pFRect);
+    return renderer.fill(rect);
+  };
+
+  SDL_SetRenderClipRect = (rID: SDL_RendererID, pRect: SDL_RectPtr) => {
+    const renderer = this.renderers.get(rID);
+    if (!renderer) return false;
+
+    renderer.clip = pRect ? this.rect(pRect) : undefined;
+    return true;
   };
 
   write = (fd: FileDescriptor, buf: StringPtr, count: Bytes) => {

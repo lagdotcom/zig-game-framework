@@ -1,21 +1,16 @@
-import backgroundPng from "../res/background.png";
-import charPng from "../res/char.png";
 import wasmUrl from "../zig-out/bin/game.wasm";
 import Env, { EngineExports } from "./Env";
-import Manifest, { fetchManifest, img } from "./Manifest";
+import Manifest, { fetchManifest } from "./Manifest";
 
 const manifest: Manifest = {
   url: wasmUrl,
-  resources: {
-    "res/background.png": img(backgroundPng),
-    "res/char.png": img(charPng),
-  },
+  resources: {},
 };
 
 async function main() {
   const [wasmPromise, resources] = await fetchManifest(manifest);
   const env = new Env(resources, {
-    "C:\\Windows\\Fonts\\baskvill.ttf": "Baskerville",
+    "C:\\Windows\\Fonts\\baskvill.ttf": "Baskerville Old Face Regular",
   });
   const src = await WebAssembly.instantiateStreaming(wasmPromise, {
     env: env as unknown as WebAssembly.ModuleImports,

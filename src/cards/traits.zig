@@ -1,0 +1,15 @@
+pub const Aliens = "Aliens";
+pub const Defence = "Defence";
+pub const ExtremeConditions = "Extreme Conditions";
+pub const HighGravity = "High Gravity";
+pub const Illegal = "Illegal";
+pub const IndustrialAction = "Industrial Action";
+pub const InterstellarWeaponry = "Interstellar Weaponry";
+pub const Jewel = "Jewel";
+pub const LowGravity = "Low Gravity";
+pub const Machinery = "Machinery";
+pub const Military = "Military";
+pub const MilitaryResource = "Military Resource";
+pub const OrbitalWeaponry = "Orbital Weaponry";
+pub const Ship = "Ship";
+pub const SpaceWeather = "Space Weather";

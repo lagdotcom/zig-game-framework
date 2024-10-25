@@ -6,7 +6,6 @@ type Flavour<T, FlavourT> = T & Flavouring<FlavourT>;
 
 export type Bytes = Flavour<number, "Bytes">;
 export type FileDescriptor = Flavour<number, "FileDescriptor">;
-export type FontPointSize = Flavour<number, "FontPointSize">;
 export type Pixels = Flavour<number, "Pixels">;
 export type Ptr = Flavour<number, "Ptr">;
 export type RGBAComponent = Flavour<number, "RGBAComponent">;

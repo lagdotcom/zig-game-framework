@@ -8,6 +8,7 @@ function aligned(size: Bytes, alignment: Bytes): Bytes {
 }
 
 interface Block {
+  name?: string;
   addr: Ptr;
   size: Bytes;
   free: boolean;
@@ -20,11 +21,11 @@ export default class Allocator {
     this.blocks = [{ addr: mem.buffer.byteLength, size: 0, free: true }];
   }
 
-  private reserve(rawSize: Bytes) {
+  private reserve(rawSize: Bytes, name?: string) {
     const size = aligned(rawSize, 8);
     const free = this.getFreeBlock(size) ?? this.extend();
 
-    const block = free.size > size ? this.split(free, size) : free;
+    const block = free.size > size ? this.split(free, size, name) : free;
     block.free = false;
 
     return block.addr;
@@ -46,8 +47,8 @@ export default class Allocator {
     return this.blocks[this.blocks.length - 1];
   }
 
-  private split(large: Block, size: Bytes) {
-    const block: Block = { addr: large.addr, size, free: false };
+  private split(large: Block, size: Bytes, name?: string) {
+    const block: Block = { name, addr: large.addr, size, free: false };
     large.addr += size;
     large.size -= size;
 
@@ -57,8 +58,8 @@ export default class Allocator {
     return block;
   }
 
-  alloc<T extends Ptr>(size: Bytes): T {
-    const ptr = this.reserve(size) as T;
+  alloc<T extends Ptr>(size: Bytes, name?: string): T {
+    const ptr = this.reserve(size, name) as T;
 
     const view = new DataView(this.mem.buffer, ptr);
     for (let i = 0; i < size; i += 8) view.setBigInt64(i, 0n);

@@ -28,6 +28,7 @@ export default class SDL_Surface {
 
   constructor(
     private allocator: Allocator,
+    name: string,
     width: Pixels = 0,
     height: Pixels = 0,
   ) {
@@ -36,8 +37,8 @@ export default class SDL_Surface {
     this.canvas = canvas;
     this.ctx = ctx;
     this.loaded = true;
-    this.ptr = allocator.alloc(32);
-    this.name = `Surface<${this.ptr}>`;
+    this.name = `Surface<${name}>`;
+    this.ptr = allocator.alloc(32, this.name);
 
     this.flags = 0;
     this.format = SDL_PixelFormat.SDL_PIXELFORMAT_RGBA8888;
@@ -52,6 +53,7 @@ export default class SDL_Surface {
   static fromImage(allocator: Allocator, res: ImageResource) {
     const surface = new SDL_Surface(
       allocator,
+      res.path,
       res.img.naturalWidth,
       res.img.naturalHeight,
     );
@@ -63,7 +65,7 @@ export default class SDL_Surface {
   }
 
   destroy() {
-    if (this.refcount-- < 1) this.allocator.free(this.ptr);
+    if (--this.refcount < 1) this.allocator.free(this.ptr);
   }
 
   get view() {

@@ -18,14 +18,16 @@ import SDL_Surface from "./SDL_Surface";
 export default class SDL_Texture {
   ptr: SDL_TexturePtr;
   canvas: OffscreenCanvas;
+  name: string;
 
   constructor(
     private allocator: Allocator,
     public renderer: SDL_Renderer,
     surface: SDL_Surface,
-    public name = surface.name,
+    name = surface.name,
   ) {
-    this.ptr = allocator.alloc(16);
+    this.name = `Texture<${name}>`;
+    this.ptr = allocator.alloc(16, this.name);
     this.format = 0;
     this.width = surface.width;
     this.height = surface.height;
@@ -35,7 +37,7 @@ export default class SDL_Texture {
   }
 
   destroy() {
-    if (this.refcount-- < 1) this.allocator.free(this.ptr);
+    if (--this.refcount < 1) this.allocator.free(this.ptr);
   }
 
   get view() {

@@ -1,4 +1,4 @@
-import { FontName, FontPointSize } from "../flavours";
+import { FontName, Pixels } from "../flavours";
 import { TTF_FontID } from "./flavours";
 
 export default class TTF_Font {
@@ -8,12 +8,15 @@ export default class TTF_Font {
 
   constructor(
     public face: FontName,
-    public size: FontPointSize,
+    public size: Pixels,
   ) {
     this.id = TTF_Font.nextId++;
   }
 
   get font() {
-    return `${this.size}pt ${this.face}`;
+    return `${this.size}px ${this.face}`;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  destroy() {}
 }
