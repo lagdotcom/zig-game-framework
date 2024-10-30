@@ -1,5 +1,6 @@
 import Allocator from "../Allocator";
 import { Pixels } from "../flavours";
+import makeStructViewer, { cast, int, u32 } from "../makeStructViewer";
 import convertSurfaceToCanvas from "../utils/convertSurfaceToCanvas";
 import { SDL_TexturePtr } from "./flavours";
 import SDL_PixelFormat from "./SDL_PixelFormat";
@@ -15,6 +16,13 @@ import SDL_Surface from "./SDL_Surface";
     int refcount;               // Application reference count, used when freeing texture
 }; */
 
+const getView = makeStructViewer({
+  format: cast<SDL_PixelFormat>(u32),
+  w: cast<Pixels>(int),
+  h: cast<Pixels>(int),
+  refcount: int,
+});
+
 export default class SDL_Texture {
   ptr: SDL_TexturePtr;
   canvas: OffscreenCanvas;
@@ -28,51 +36,25 @@ export default class SDL_Texture {
   ) {
     this.name = `Texture<${name}>`;
     this.ptr = allocator.alloc(16, this.name);
-    this.format = 0;
-    this.width = surface.width;
-    this.height = surface.height;
-    this.refcount = 1;
+
+    const v = this.view;
+    v.format = 0;
+    v.w = surface.view.w;
+    v.h = surface.view.h;
+    v.refcount = 1;
 
     this.canvas = convertSurfaceToCanvas(surface);
   }
 
   destroy() {
-    if (--this.refcount < 1) this.allocator.free(this.ptr);
+    if (--this.view.refcount < 1) this.allocator.free(this.ptr);
   }
 
   get view() {
-    return new DataView(this.allocator.mem.buffer, this.ptr, 16);
-  }
-
-  get format() {
-    return this.view.getUint32(0, true);
-  }
-  set format(value: SDL_PixelFormat) {
-    this.view.setUint32(0, value, true);
-  }
-
-  get width() {
-    return this.view.getInt32(4, true);
-  }
-  set width(value: Pixels) {
-    this.view.setInt32(4, value, true);
-  }
-
-  get height() {
-    return this.view.getInt32(8, true);
-  }
-  set height(value: Pixels) {
-    this.view.setInt32(8, value, true);
-  }
-
-  get refcount() {
-    return this.view.getInt32(12, true);
-  }
-  set refcount(value: number) {
-    this.view.setInt32(12, value, true);
+    return getView(this.allocator.mem.buffer, this.ptr);
   }
 
   get rect() {
-    return new SDL_Rect(0, 0, this.width, this.height);
+    return new SDL_Rect(0, 0, this.view.w, this.view.h);
   }
 }

@@ -21,7 +21,7 @@ export default class SDL_Window {
   ) {
     this.id = SDL_Window.nextId++;
 
-    surface.refcount++;
+    surface.view.refcount++;
     surface.canvas.width = width;
     surface.canvas.height = height;
     document.body.append(surface.canvas);

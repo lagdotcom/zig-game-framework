@@ -1,5 +1,6 @@
 import Allocator from "../Allocator";
 import { Bytes, Pixels, Ptr, RGBAValue } from "../flavours";
+import makeStructViewer, { cast, int, u32 } from "../makeStructViewer";
 import { ImageResource } from "../Manifest";
 import makeCanvas from "../utils/makeCanvas";
 import { SDL_SurfacePtr } from "./flavours";
@@ -17,6 +18,17 @@ import SDL_SurfaceFlags from "./SDL_SurfaceFlags";
     int refcount;               // Application reference count, used when freeing surface
     void *reserved;             // Reserved for internal use
 }; */
+
+const getView = makeStructViewer({
+  flags: cast<SDL_SurfaceFlags>(u32),
+  format: cast<SDL_PixelFormat>(int),
+  w: cast<Pixels>(int),
+  h: cast<Pixels>(int),
+  pitch: cast<Bytes>(int),
+  pixels: cast<Ptr>(u32),
+  refcount: int,
+  reserved: cast<Ptr>(u32),
+});
 
 export default class SDL_Surface {
   ptr: SDL_SurfacePtr;
@@ -40,14 +52,15 @@ export default class SDL_Surface {
     this.name = `Surface<${name}>`;
     this.ptr = allocator.alloc(32, this.name);
 
-    this.flags = 0;
-    this.format = SDL_PixelFormat.SDL_PIXELFORMAT_RGBA8888;
-    this.width = width;
-    this.height = height;
-    this.pitch = 4 * width;
-    this.pixels = 0;
-    this.refcount = 1;
-    this.reserved = 0;
+    const v = this.view;
+    v.flags = 0;
+    v.format = SDL_PixelFormat.SDL_PIXELFORMAT_RGBA8888;
+    v.w = width;
+    v.h = height;
+    v.pitch = 4 * width;
+    v.pixels = 0;
+    v.refcount = 1;
+    v.reserved = 0;
   }
 
   static fromImage(allocator: Allocator, res: ImageResource) {
@@ -65,72 +78,14 @@ export default class SDL_Surface {
   }
 
   destroy() {
-    if (--this.refcount < 1) this.allocator.free(this.ptr);
+    if (--this.view.refcount < 1) this.allocator.free(this.ptr);
   }
 
   get view() {
-    return new DataView(this.allocator.mem.buffer, this.ptr, 32);
-  }
-
-  get flags() {
-    return this.view.getUint32(0, true);
-  }
-  set flags(value: SDL_SurfaceFlags) {
-    this.view.setUint32(0, value, true);
-  }
-
-  get format() {
-    return this.view.getUint32(4, true);
-  }
-  set format(value: SDL_PixelFormat) {
-    this.view.setUint32(4, value, true);
-  }
-
-  get width() {
-    return this.view.getInt32(8, true);
-  }
-  set width(value: Pixels) {
-    this.view.setInt32(8, value, true);
-    this.canvas.width = value;
-  }
-
-  get height() {
-    return this.view.getInt32(12, true);
-  }
-  set height(value: Pixels) {
-    this.view.setInt32(12, value, true);
-    this.canvas.height = value;
-  }
-
-  get pitch() {
-    return this.view.getInt32(16, true);
-  }
-  set pitch(value: Bytes) {
-    this.view.setInt32(16, value, true);
-  }
-
-  get pixels() {
-    return this.view.getUint32(20, true);
-  }
-  set pixels(value: Ptr) {
-    this.view.setUint32(20, value, true);
-  }
-
-  get refcount() {
-    return this.view.getInt32(24, true);
-  }
-  set refcount(value: number) {
-    this.view.setInt32(24, value, true);
-  }
-
-  get reserved() {
-    return this.view.getUint32(28, true);
-  }
-  set reserved(value: Ptr) {
-    this.view.setUint32(28, value, true);
+    return getView(this.allocator.mem.buffer, this.ptr);
   }
 
   get rect() {
-    return new SDL_Rect(0, 0, this.width, this.height);
+    return new SDL_Rect(0, 0, this.view.w, this.view.h);
   }
 }

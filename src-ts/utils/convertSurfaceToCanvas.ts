@@ -3,11 +3,14 @@ import { makeOffscreenCanvas } from "./makeCanvas";
 import { extractRGBA } from "./rgba";
 
 export default function convertSurfaceToCanvas(surface: SDL_Surface) {
-  const { canvas, ctx } = makeOffscreenCanvas(surface.width, surface.height);
+  const { canvas, ctx } = makeOffscreenCanvas(
+    surface.canvas.width,
+    surface.canvas.height,
+  );
 
   if (typeof surface.colorKey === "number") {
     // this function is hella slow, avoid when possible
-    const id = surface.ctx.getImageData(0, 0, surface.width, surface.height);
+    const id = surface.ctx.getImageData(0, 0, canvas.width, canvas.height);
     const col = extractRGBA(surface.colorKey);
 
     for (let i = 0; i < id.data.length; i += 4) {

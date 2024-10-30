@@ -1,5 +1,13 @@
 import { Pixels } from "../flavours";
+import makeStructViewer, { cast, i32 } from "../makeStructViewer";
 import { SDL_RectPtr } from "./flavours";
+
+const getView = makeStructViewer({
+  x: cast<Pixels>(i32),
+  y: cast<Pixels>(i32),
+  w: cast<Pixels>(i32),
+  h: cast<Pixels>(i32),
+});
 
 export default class SDL_Rect {
   constructor(
@@ -10,12 +18,7 @@ export default class SDL_Rect {
   ) {}
 
   static fromPointer(buffer: ArrayBuffer, offset: SDL_RectPtr) {
-    const view = new DataView(buffer, offset);
-    const x = view.getInt32(0, true);
-    const y = view.getInt32(4, true);
-    const w = view.getInt32(8, true);
-    const h = view.getInt32(12, true);
-
-    return new SDL_Rect(x, y, w, h);
+    const data = getView(buffer, offset);
+    return new SDL_Rect(data.x, data.y, data.w, data.h);
   }
 }

@@ -1,3 +1,26 @@
+import { Nanoseconds } from "../flavours";
+import makeStructViewer, {
+  bool,
+  cast,
+  f32,
+  int,
+  u16,
+  u32,
+  u64,
+} from "../makeStructViewer";
+import getNanosecondTimestamp from "../utils/getNanosecondTimestamp";
+import {
+  SDL_EventPtr,
+  SDL_KeyboardID,
+  SDL_MouseID,
+  SDL_WindowID,
+} from "./flavours";
+import SDL_EventType from "./SDL_EventType";
+import SDL_Keycode from "./SDL_Keycode";
+import SDL_Keymod from "./SDL_Keymod";
+import SDL_MouseButtonFlags from "./SDL_MouseButtonFlags";
+import SDL_Scancode from "./SDL_Scancode";
+
 /* typedef struct SDL_KeyboardEvent {
     SDL_EventType type;     // SDL_EVENT_KEY_DOWN or SDL_EVENT_KEY_UP
     Uint32 reserved;
@@ -11,20 +34,19 @@
     bool down;              // true if the key is pressed
     bool repeat;            // true if this is a key repeat
 } SDL_KeyboardEvent; */
-
-import { Nanoseconds } from "../flavours";
-import getNanosecondTimestamp from "../utils/getNanosecondTimestamp";
-import {
-  SDL_EventPtr,
-  SDL_KeyboardID,
-  SDL_MouseID,
-  SDL_WindowID,
-} from "./flavours";
-import SDL_EventType from "./SDL_EventType";
-import SDL_Keycode from "./SDL_Keycode";
-import SDL_Keymod from "./SDL_Keymod";
-import SDL_MouseButtonFlags from "./SDL_MouseButtonFlags";
-import SDL_Scancode from "./SDL_Scancode";
+const getKeyboardEventView = makeStructViewer({
+  type: cast<SDL_EventType>(int),
+  reserved: u32,
+  timestamp: u64,
+  windowID: cast<SDL_WindowID>(int),
+  which: cast<SDL_KeyboardID>(int),
+  scancode: cast<SDL_Scancode>(int),
+  key: cast<SDL_Keycode>(int),
+  mod: cast<SDL_Keymod>(int),
+  raw: u16,
+  down: bool,
+  repeat: bool,
+});
 
 export class SDL_KeyboardEvent {
   timestamp: Nanoseconds;
@@ -46,19 +68,18 @@ export class SDL_KeyboardEvent {
   }
 
   write(mem: WebAssembly.Memory, ptr: SDL_EventPtr) {
-    const view = new DataView(mem.buffer, ptr);
-
-    view.setUint32(0, this.type, true);
-    view.setUint32(4, 0, true);
-    view.setBigUint64(8, this.timestamp, true);
-    view.setUint32(16, this.windowID, true);
-    view.setUint32(20, this.which, true);
-    view.setUint32(24, this.scancode, true);
-    view.setUint32(28, this.key, true);
-    view.setUint32(32, this.mod, true);
-    view.setUint16(36, this.raw, true);
-    view.setUint8(38, this.down ? 1 : 0);
-    view.setUint8(39, this.repeat ? 1 : 0);
+    const view = getKeyboardEventView(mem.buffer, ptr);
+    view.type = this.type;
+    view.reserved = 0;
+    view.timestamp = this.timestamp;
+    view.windowID = this.windowID;
+    view.which = this.which;
+    view.scancode = this.scancode;
+    view.key = this.key;
+    view.mod = this.mod;
+    view.raw = this.raw;
+    view.down = this.down;
+    view.repeat = this.repeat;
   }
 }
 
@@ -74,6 +95,18 @@ export class SDL_KeyboardEvent {
     float xrel;         // The relative motion in the X direction
     float yrel;         // The relative motion in the Y direction
 } SDL_MouseMotionEvent; */
+const getMouseMotionEventView = makeStructViewer({
+  type: cast<SDL_EventType>(int),
+  reserved: u32,
+  timestamp: u64,
+  windowID: cast<SDL_WindowID>(int),
+  which: cast<SDL_MouseID>(int),
+  state: cast<SDL_MouseButtonFlags>(int),
+  x: f32,
+  y: f32,
+  xrel: f32,
+  yrel: f32,
+});
 
 export class SDL_MouseMotionEvent {
   timestamp: Nanoseconds;
@@ -92,18 +125,17 @@ export class SDL_MouseMotionEvent {
   }
 
   write(mem: WebAssembly.Memory, ptr: SDL_EventPtr) {
-    const view = new DataView(mem.buffer, ptr);
-
-    view.setUint32(0, this.type, true);
-    view.setUint32(4, 0, true);
-    view.setBigUint64(8, this.timestamp, true);
-    view.setUint32(16, this.windowID, true);
-    view.setUint32(20, this.which, true);
-    view.setUint32(24, this.state, true);
-    view.setFloat32(28, this.x, true);
-    view.setFloat32(32, this.y, true);
-    view.setFloat32(36, this.xrel, true);
-    view.setFloat32(40, this.xrel, true);
+    const view = getMouseMotionEventView(mem.buffer, ptr);
+    view.type = this.type;
+    view.reserved = 0;
+    view.timestamp = this.timestamp;
+    view.windowID = this.windowID;
+    view.which = this.which;
+    view.state = this.state;
+    view.x = this.x;
+    view.y = this.y;
+    view.xrel = this.xrel;
+    view.yrel = this.yrel;
   }
 }
 

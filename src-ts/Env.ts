@@ -10,6 +10,7 @@ import {
   StringPtr,
 } from "./flavours";
 import KeyboardListener from "./KeyboardListener";
+import makeStructViewer, { cast, u8 } from "./makeStructViewer";
 import { ResourceMap } from "./Manifest";
 import {
   SDL_ColorPtr,
@@ -41,6 +42,13 @@ import TTF_Font from "./sdl/TTF_Font";
 import decomposeFlags from "./utils/decomposeFlags";
 import { createRGBA, toRGBAString } from "./utils/rgba";
 import WordWrapper from "./WordWrapper";
+
+const getRGBAView = makeStructViewer({
+  r: cast<RGBAComponent>(u8),
+  g: cast<RGBAComponent>(u8),
+  b: cast<RGBAComponent>(u8),
+  a: cast<RGBAComponent>(u8),
+});
 
 const stub =
   (name: string) =>
@@ -165,12 +173,7 @@ export default class Env {
   }
 
   colour(offset: SDL_ColorPtr) {
-    const view = new DataView(this.mem.buffer, offset);
-
-    const r: RGBAComponent = view.getUint8(0);
-    const g: RGBAComponent = view.getUint8(1);
-    const b: RGBAComponent = view.getUint8(2);
-    const a: RGBAComponent = view.getUint8(3);
+    const { r, g, b, a } = getRGBAView(this.mem.buffer, offset);
     return { r, g, b, a };
   }
 
